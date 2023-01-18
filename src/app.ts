@@ -32,5 +32,6 @@ app.use('/driver', Routes.driverRouter)
 app.use('/cleaner', Routes.cleanerRouter)
 app.use('/cleanerPro', Routes.cleanerProRouter)
 app.use('/admin', Routes.AdminRouter)
+app.use('/aptMan', Routes.aptManRouter)
 
 app.listen(PORT, () => console.log(`running on port: ${ PORT }`))

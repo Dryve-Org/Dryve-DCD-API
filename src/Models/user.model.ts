@@ -1,10 +1,9 @@
 import mongoose, { Types, model, Schema } from "mongoose"
 import validator from 'validator'
 import bcrypt from 'bcrypt'
-import { isOfAge, isUnixDate } from "../constants/time"
+import { isOfAge, isUnixDate, now } from "../constants/time"
 import jwt from 'jsonwebtoken'
 import { MongooseFindByReference } from "mongoose-find-by-reference"
-import { AddressI } from "./address.model"
 
 export interface UserI {
     _id?: any
@@ -156,8 +155,28 @@ UserSchema.methods.generateAuthToken = async function() {
 UserSchema.pre('save', async function (next) { //must use ES5 function to use the "this" binding
     const user = this // "this" is in reverence to userSchema
 
+    if(user.isModified('firstName')) {
+        user.firstName = user.firstName.toLowerCase()
+    }
+
+    if(user.isModified('lastName')) {
+        user.lastName = user.lastName.toLowerCase()
+    }
+
+    if(user.isModified('email')) {
+        user.email = user.email.toLowerCase()
+    }
+
     if (user.isModified('password')) {
         user.password = await bcrypt.hash(user.password, 8)
+    }
+
+    if(!user.created) {
+        user.created = now()
+    }
+
+    if(!user.emailVerified) {
+        user.emailVerified = false
     }
 
     next() // without next the function will hang and never save

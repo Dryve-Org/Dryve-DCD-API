@@ -7,6 +7,7 @@ export interface ManagerI {
     userId: Types.ObjectId,
     attachedStores: Types.ObjectId[]
     created: number
+    _id: Types.ObjectId
 }
 
 const ManagerSchema = new Schema<ManagerI>({
