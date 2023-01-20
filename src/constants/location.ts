@@ -11,12 +11,12 @@ type addyI = Document<unknown, any, AddressI> & AddressI & {
 }
 
 /*
-    this needs to be update
+    this needs to be updated
     to not throw entirely.
 */
 
 
-/**
+/**1
  * Finds the provided address's placeId and if 
  * place matches a placeId stored in the database
  * the return the follow address document.
@@ -42,6 +42,7 @@ export const addAddress = async (
 
     const addyByPlaceId = await Address.findOne({ placeId })
         .catch(e => console.log('error: ', e))
+
     if(addyByPlaceId) return addyByPlaceId
     
     address.placeId = undefined

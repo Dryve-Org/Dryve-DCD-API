@@ -6,6 +6,7 @@ import CleanerProfile, { CleanerProfileI, CleanerProT } from "../Models/cleanerP
 import Manager, { ManagerI } from "../Models/manager.models"
 import Admin from "../Models/admin.modes"
 import Driver, { DriverDocT, DriverI, DriverMethodsI } from "../Models/driver.model"
+import AptMan, { AptManDocT, AptManI } from "../Models/aptMan.model"
 
 interface errorI { 
     statusCode: number
@@ -254,6 +255,55 @@ export const managerAuth: any = async (req: Request, res: Response, next: NextFu
         res.send(e)
     }
 }
+
+export interface aptManAuthI {
+    aptMan: AptManDocT
+    _id: AptManI['_id']
+    token: string
+    isAptMan: boolean
+}
+
+export const aptManAuth: any = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const authFromHeader = req.header('Authorization')
+        if(!authFromHeader) throw "missing headers"
+
+        const token = authFromHeader.replace('Bearer ', '')
+        if(!process.env.JWT) throw {
+            statusCode: 501,
+            message: "server error: no token"
+        }
+
+        const decoded: any = jwt.verify(token, process.env.JWT, (err, decoded) => {
+            if(err) {
+                return err.name
+            }
+            return decoded
+        })
+
+        if(decoded === 'TokenExpiredError') throw {
+            statusCode: 403,
+            message: "token expired"
+        }
+
+        const aptMan = await AptMan.findOne({ _id: decoded._id, token: token })
+        if(!aptMan) throw {
+            statusCode: 401,
+            message: "bad data: invalid access"
+        }
+
+        req.body._id = aptMan.id
+        req.body.aptMan = aptMan
+        req.body.token = token
+        req.body.isAptMan = true
+
+        next()
+    } catch(e) {
+        res.send(e)
+    }
+}
+
+
 
 export interface DriverAuthI extends authBodyI {
     driver: DriverDocT & DriverMethodsI

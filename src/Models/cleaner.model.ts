@@ -1,6 +1,7 @@
 import mongoose, { Schema, model, Types, Model } from 'mongoose'
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
 import validator from 'validator'
+import { cleanerExist } from '../constants/validation';
 
 export type ClnDocT = mongoose.Document<unknown, any, CleanerI> & CleanerI & {
     _id: mongoose.Types.ObjectId;
