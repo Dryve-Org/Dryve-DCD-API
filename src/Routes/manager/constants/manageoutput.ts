@@ -1,0 +1,4 @@
+/* 
+    This file will need to be updated to reflect the new output types
+    aptMan returns
+*/

@@ -1,4 +1,4 @@
-import mongoose, { Schema, model, Types, Model } from 'mongoose'
+import mongoose, { Schema, model, Types, Model, Document } from 'mongoose'
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
 import validator from 'validator'
 import { isUnixDate, now } from '../constants/time'
@@ -8,6 +8,7 @@ import Apt from './apartment.model'
 import jwt from 'jsonwebtoken'
 
 export interface AptManI {
+    _id: Types.ObjectId
     email: string
     password: string
     firstName: string
@@ -24,7 +25,7 @@ export type AptManDocT = mongoose.Document<unknown, any, AptManI> & AptManI & {
     _id: Types.ObjectId
 }
 
-export type AptModelT = Model<AptManDocT, {}, AptManI>
+export type AptModelT = Model<AptManI, {}, AptManI>
 
 export interface AptManMethodsI {
     getFullName(): string
@@ -84,7 +85,7 @@ const AptManSchema = new Schema<AptManI, AptModelT, AptManMethodsI>({
     },
     attachedApts: [{
         type: Schema.Types.ObjectId,
-        ref: 'Apt',
+        ref: 'Apartment',
         default: []
     }],
     created: {
