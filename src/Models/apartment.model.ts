@@ -49,6 +49,11 @@ export interface AptI {
 
 interface AptIMethods {
     /**
+     * get building
+    */
+    getBuilding(buildingId: string): AptBuildingI,
+
+    /**
      * Adding a building to Apartment
      * @param {string} buildingId - string - building identifier
      * @param {AddressI} address - Address of the building
@@ -191,79 +196,102 @@ type AptModelT = Model<AptI, {}, AptIMethods>
 /**
  * Creating a schema for an apartment complex
 */
-const AptSchema = new Schema<AptI, AptModelT, AptIMethods>({
-    name: {
-        type: String,
-        required: true
-    },
-    address: {
-        type: Schema.Types.ObjectId,
-        ref: 'Address'
-    },
-    buildings: {
-        type: Map,
-        default: {},
-        of: {
-            address: {
-                type: Schema.Types.ObjectId,
-                ref: 'Address',
-                required: true
-            },
-            units: {
-                type: Map,
-                of: {
-                    address: {
-                        type: Schema.Types.ObjectId,
-                        ref: 'Address',
-                        required: true
-                    },
-                    client: {
-                        type: Schema.Types.ObjectId,
-                        ref: 'User',
-                    },
-                    isActive: {
-                        type: Boolean,
-                        default: false
-                    },
-                    activeOrder: {
-                        type: Schema.Types.ObjectId,
-                        ref: 'Order'
-                    },
-                    default: {}
+const AptSchema = new Schema<AptI, AptModelT, AptIMethods>(
+    {
+        name: {
+            type: String,
+            required: true
+        },
+        address: {
+            type: Schema.Types.ObjectId,
+            ref: 'Address'
+        },
+        buildings: {
+            type: Map,
+            default: {},
+            of: {
+                address: {
+                    type: Schema.Types.ObjectId,
+                    ref: 'Address',
+                    required: true,
+                    autoPopulate: true
+                },
+                units: {
+                    type: Map,
+                    of: {
+                        address: {
+                            type: Schema.Types.ObjectId,
+                            ref: 'Address',
+                            required: true
+                        },
+                        client: {
+                            type: Schema.Types.ObjectId,
+                            ref: 'User',
+                        },
+                        isActive: {
+                            type: Boolean,
+                            default: false
+                        },
+                        activeOrder: {
+                            type: Schema.Types.ObjectId,
+                            ref: 'Order'
+                        },
+                        default: {}
+                    }
                 }
+            }
+        },
+        primaryCleaner: {
+            type: Schema.Types.ObjectId,
+            ref: 'Cleaner',
+            default: undefined
+        },
+        goToCleaners: [{
+            type: Schema.Types.ObjectId,
+            ref: 'Cleaner',
+            default: []
+        }],
+        paidFor: {
+            default: false
+        },
+        createdBy: {
+            userType: { 
+                type: String,
+                enum: 'manager'
+            },
+            userTypeId: { 
+                type: Schema.Types.ObjectId,
+                refPath: 'userType',
             }
         }
     },
-    primaryCleaner: {
-        type: Schema.Types.ObjectId,
-        ref: 'Cleaner',
-        default: undefined
-    },
-    goToCleaners: [{
-        type: Schema.Types.ObjectId,
-        ref: 'Cleaner',
-        default: []
-    }],
-    paidFor: {
-        default: false
-    },
-    createdBy: {
-        userType: { 
-            type: String,
-            enum: 'manager'
+    {
+        toJSON: {
+            virtuals: true,
         },
-        userTypeId: { 
-            type: Schema.Types.ObjectId,
-            refPath: 'userType',
-        }
+        toObject: {
+            virtuals: true,
+        },
     }
-})
+)
 
 AptSchema.plugin(MongooseFindByReference)
 
 const err = (status: number, message: string) => ({
     status,
     message
+})
+
+AptSchema.method<AptDocT>('getBuilding', function(
+    buildingId: string
+) {
+    const apt = this as AptDocT
+
+    const building = apt.buildings.get(buildingId)
+
+    if(!building) throw new Error('building not found')
+
+    return building
 })
 
 AptSchema.method('addBuilding', async function(
