@@ -443,12 +443,11 @@ AptSchema.method('addClient', async function(
 ) {
     const apt = this as AptDocT
 
-    if(!v.isEmail(email)) throw err(400,'invalid body')
-    if(typeof isActive === 'boolean') throw err(400,'invalid body')
+    if(!v.isEmail(email)) throw err(400,'invalid body: email')
+    if(typeof isActive === 'boolean') throw err(400, 'invalid body')
 
     const unit = apt.buildings.get(buildingId)?.units.get(unitId)
     if(!unit) throw err(400, 'unit does not exist')
-    if(unit.client) throw err(400, 'unit already has a client')
 
     const client = await User.findOne({ email })
     if(!client) throw err(400, 'client does not exist')
@@ -461,6 +460,15 @@ AptSchema.method('addClient', async function(
             apt.name
         )
     }
+
+    //loop through each unit in each building to find the unit with the client
+    apt.buildings.forEach(building => {
+        building.units.forEach(unit => {
+            if(unit.client?.toString() === client._id.toString()) {
+                throw err(400, 'client already has a unit')
+            }
+        })
+    })
 
     if(
         !idToString(client.pickUpAddresses)
@@ -493,7 +501,9 @@ AptSchema.method('removeClient', async function(
     const unit = apt.buildings.get(buildingId)?.units
         .get(unitId)
 
-    if(!unit?.client) throw err(400, 'client already does not exists')
+    if(!unit) throw err(400, 'unit does not exist')
+
+    if(!unit.client) throw err(400, 'client already does not exists')
     if(unit?.activeOrder) throw err(400, 'order is currently in progress')
 
     apt.buildings.get(buildingId)?.units
@@ -526,6 +536,31 @@ AptSchema.method('activateUnit', async function(
         client: unit.client,
         isActive: true,
         activeOrder: unit.activeOrder
+    })
+
+    await apt.save()
+    return apt
+})
+
+AptSchema.method('deactivateUnit', async function(
+    buildingId: string, 
+    unitId: string
+) {
+    const apt = this as AptDocT
+    
+    const unit = apt.buildings.get(buildingId)?.units
+        .get(unitId)
+    
+    if(apt.buildings.get(buildingId)) err(400, 'could not find building')
+    if(!unit) throw err(400, 'could not find unit')
+    if(!unit.client) throw err(400, 'client already does not exists')
+    if(unit.activeOrder) throw err(400, 'order is currently in progress')
+
+    apt.buildings.get(buildingId)?.units.set(unitId, {
+        address: unit.address,
+        client: unit.client,
+        isActive: false,
+        activeOrder: undefined
     })
 
     await apt.save()

@@ -6,6 +6,7 @@ import Apt from '../../Models/apartment.model'
 import Address from '../../Models/address.model'
 import { ClientSelect } from './constant/outputs'
 import User from '../../Models/user.model'
+import { AptParams } from './constant/interface'
 
 const AptR = express.Router()
 
@@ -23,6 +24,12 @@ const getApt = async (aptId: string) => {
     return apt
 }
 
+/**
+ * @desc: get apartment data
+ * @route: GET /aptMan/apt/:aptId
+ * @access: private
+ * 
+*/
 AptR.get(
 '/:aptId',
 aptManAuth,
@@ -43,11 +50,15 @@ async (req: Request<{aptId: string}, {}, aptManAuthI>, res: Response) => {
     }
 })
 
-
+/**
+    * @desc: get apartment building by id
+    * @route: GET /aptMan/apt/:aptId/:bldId
+    * @access: private
+*/
 AptR.get(
 '/:aptId/:bldId',
 aptManAuth,
-async (req: Request<{aptId: string, bldId: string}, {}, aptManAuthI>, res: Response) => {
+async (req: Request<AptParams, {}, aptManAuthI>, res: Response) => {
     try {
         const { aptId, bldId } = req.params
         const { aptMan } = req.body
@@ -77,6 +88,11 @@ async (req: Request<{aptId: string, bldId: string}, {}, aptManAuthI>, res: Respo
     }
 })
 
+/**
+ * @desc: get apartment unit by id
+ * @route: GET /aptMan/apt/:aptId/:bldId/:unitId
+ * @access: private
+*/
 AptR.get(
 '/:aptId/:bldId/:unitId',
 aptManAuth,
@@ -115,6 +131,129 @@ async (req: Request<{aptId: string, bldId: string, unitId: string}, {}, aptManAu
         res.send(unit)
     } catch(e) {
         res.status(400).send('Invalid inputs')
+    }
+})
+
+interface assignUnitI extends aptManAuthI {
+    clientEmail: string
+}
+
+/**
+ * @desc: assign unit to client
+ * @route: POST /aptMan/apt/:aptId/:bldId/:unitId/assign
+ * @access: private
+ */
+AptR.post(
+'/:aptId/:bldId/:unitId/assign',
+aptManAuth,
+async (req: Request<AptParams, {}, assignUnitI>, res: Response) => {
+    try {
+        const { aptId, bldId, unitId } = req.params
+        const { clientEmail } = req.body
+        const { aptMan } = req.body
+
+        if(!idToString(aptMan.attachedApts).includes(aptId)) {
+            return res.status(401).send('Unauthorized to access this apartment')
+        }
+
+        const apt = await Apt.findById(aptId, {
+            'buildings': 1
+        })
+        if(!apt) {
+            return res.status(400).send('Invalid apartment')
+        }
+
+        await apt.addClient(bldId, unitId, clientEmail)
+
+        await apt.save()
+
+        res.send('Unit assigned')
+    } catch(e) {
+        res.status(400).send(e)
+    }
+})
+
+AptR.delete(
+'/:aptId/:bldId/:unitId/unassign',
+aptManAuth,
+async (req: Request<AptParams, {}, assignUnitI>, res: Response) => {
+    try {
+        const { aptId, bldId, unitId } = req.params
+        const { aptMan } = req.body
+
+        if(!idToString(aptMan.attachedApts).includes(aptId)) {
+            return res.status(401).send('Unauthorized to access this apartment')
+        }
+
+        const apt = await Apt.findById(aptId, {
+            'buildings': 1
+        })
+        if(!apt) {
+            return res.status(400).send('Invalid apartment')
+        }
+
+        await apt.removeClient(bldId, unitId)
+
+        await apt.save()
+
+        res.send('Unit unassigned')
+    } catch(e) {
+        res.status(400).send(e)
+    }
+})
+
+AptR.post(
+'/:aptId/:bldId/:unitId/activate',
+aptManAuth,
+async (req: Request<AptParams, {}, assignUnitI>, res: Response) => {
+    try {
+        const { aptId, bldId, unitId } = req.params
+
+        const { aptMan } = req.body
+
+        if(!idToString(aptMan.attachedApts).includes(aptId)) {
+            return res.status(401).send('Unauthorized to access this apartment')
+        }
+
+        const apt = await Apt.findById(aptId, {
+            'buildings': 1
+        })
+        if(!apt) {
+            return res.status(400).send('Invalid apartment')
+        }
+
+        await apt.activateUnit(bldId, unitId)
+
+        res.status(200).send('Unit activated')
+    } catch(e) {
+        res.status(400).send(e)
+    }
+})
+
+AptR.post(
+'/:aptId/:bldId/:unitId/deactivate',
+aptManAuth,
+async (req: Request<AptParams, {}, assignUnitI>, res: Response) => {
+    try {
+        const { aptId, bldId, unitId } = req.params
+        const { aptMan } = req.body
+
+        if(!idToString(aptMan.attachedApts).includes(aptId)) {
+            return res.status(401).send('Unauthorized to access this apartment')
+        }
+
+        const apt = await Apt.findById(aptId, {
+            'buildings': 1
+        })
+        if(!apt) {
+            return res.status(400).send('Invalid apartment')
+        }
+
+        await apt.deactivateUnit(bldId, unitId)
+
+        res.status(200).send('Unit deactivated')
+    } catch(e) {
+        res.status(400).send(e)
     }
 })
 
