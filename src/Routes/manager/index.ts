@@ -3,6 +3,7 @@ import AptR from './apartment'
 import cleanerR from './cleaner'
 import ManagerR from './manager'
 import AptManR from './aptMan'
+import cleanerProR from './cleanerPro'
 
 const ManagerRouter = express.Router()
 
@@ -10,5 +11,6 @@ ManagerRouter.use('', AptR)
 ManagerRouter.use('', ManagerR)
 ManagerRouter.use('', cleanerR)
 ManagerRouter.use('', AptManR)
+ManagerRouter.use('', cleanerProR)
 
 export default ManagerRouter

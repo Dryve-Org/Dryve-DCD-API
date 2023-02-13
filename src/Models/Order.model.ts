@@ -1,15 +1,13 @@
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
 import mongoose, { Types, model, Schema, Model } from 'mongoose'
 import { isUnixDate } from '../constants/time'
-import { ManagerI } from './manager.models'
 import { PointI, PointSchema } from './point.models'
-import { desiredServicesI, handleDesiredServices } from '../constants/general'
+import { desiredServicesI, err, handleDesiredServices } from '../constants/general'
 import { createPaymentIntent, stripe, updateAmount } from '../constants/moneyHandling'
-import Stripe from 'stripe'
-import Service from './services.model'
 import { invoiceEmail, transporter } from '../constants/email/setup'
 import { UserI } from './user.model'
 import { CleanerI } from './cleaner.model'
+import e from 'express'
 
 export type OrderDocT = mongoose.Document<unknown, any, OrderI> & OrderI & {
     _id: mongoose.Types.ObjectId
@@ -62,21 +60,44 @@ export interface OrderI {
     dropOffCostId?: string // cost for drive from Cleaner to origin
     cleanCostId?: string // total cost for cleaners
     cleaner: Types.ObjectId
-    orderClosed: boolean //is order accessible, useable, and still active
+    /**
+     * is order accessible, useable, and still active
+    */
+    orderClosed: boolean
+    /**
+     * time when the order is closed
+     * @type {Isotime}
+    */
     closedTime?: number
     clientPickupTime?: number
     cleanerDropOffTime?: number
+    /**
+     * time when the clothes are done being cleaned
+     * @type {Isotime}
+    */
     cleanFinishTime?: number
     cleanerPickupTime?: number
     clientDropoffTime?: number
-    toCleanerDistance: number // in miles
-    fromCleanerDistance: number //in miles
+    /**
+     * distnce from client to cleaners in miles
+     * @type {Number}
+    */
+    toCleanerDistance: number
+    /**
+     * distnce from cleaners to client in miles
+     * @type {Number}
+    */
+    fromCleanerDistance: number 
     created: number
     status: OrderstatusT
     orderFee: number
     orderFeePaid: boolean
     userCard?: string
-    isDropOff?: boolean //is order a drop off request
+    /**
+     * If the order is now in the drop off process order
+     * @type {boolean}
+    */
+    isDropOff?: boolean
     desiredServices: desiredServicesI[]
     apartment: Types.ObjectId
     building: string,
@@ -103,6 +124,12 @@ interface OrderMethodsI {
     updateDesiredServices(
         desiredServices: desiredServicesI[]
     ): OrderDocT
+
+    /**
+     * This will create a payment link for the order and
+     * client will recieve an email with the link.
+    */
+    invoiceClient(): Promise<OrderDocT>
 }
 
 export type OrderModelT = Model<OrderI, {}, OrderMethodsI>
@@ -241,6 +268,7 @@ const OrderSchema = new Schema<OrderI, OrderModelT, OrderMethodsI>({
     },
     desiredServices: [{
         quantity: Number,
+        weight: Number,
         service: {
             type: Schema.Types.ObjectId,
             ref: 'Service'
@@ -270,27 +298,37 @@ OrderSchema.plugin(MongooseFindByReference)
 OrderSchema.method<OrderDocT>('updateDesiredServices', async function(
     desiredServices: desiredServicesI[]
 ) {
-    const order = this
+    const order = this as OrderDocT
 
     // if(order.orderPaidfor) {
     //     throw 'order was already paid for'
     // }
 
-    const handleServices = await handleDesiredServices(desiredServices)
-        .catch(() => {
-            throw 'invalid body'
-        })
-
     order.desiredServices = desiredServices
+    
+    await order.save()
 
-    //Calculating cost here for the order including taxes
-    order.orderTotal = handleServices.total + 500
+    return order
+})
+
+OrderSchema.method<OrderDocT>('invoiceClient', async function() {
+    const order = this
+
+    if(order.orderPaidfor) {
+        throw err(400, 'order was already paid for')
+    }
+
+    if (!order.desiredServices) {
+        throw err(400, 'no desired services')
+    }
+
+    const handleServices = await handleDesiredServices(order.desiredServices)
 
     if(!order.paymentLinkURL) {
         const paymentLink = await stripe.paymentLinks.create({
-            line_items: handleServices.serviceWithPrice.map((dS) => ({
+            line_items: handleServices.servicesWithPrice.map((dS) => ({
                 price: dS.service.priceId,
-                quantity: dS.quantity
+                quantity: dS.quantity || 1,
             })),
             billing_address_collection: 'required'
         })
@@ -299,10 +337,10 @@ OrderSchema.method<OrderDocT>('updateDesiredServices', async function(
     } else {
         //there should be a way to update this
         //without creating a payment Id
-        throw 'Has already been submitted'
+        throw err(400, 'payment link already exists')
     }
 
-    await order.save()
+    order.orderTotal = handleServices.total
 
     await order.populate([
         {
@@ -327,7 +365,7 @@ OrderSchema.method<OrderDocT>('updateDesiredServices', async function(
         order.orderTotal || 0,
     )
 
-    return order
+    await order.save()
 })
 
 const Order = model("Order", OrderSchema)

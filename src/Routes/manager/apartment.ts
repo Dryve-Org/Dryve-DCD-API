@@ -82,6 +82,7 @@ async (req: Request<{}, {}, AddAptI>, res: Response) => {
 
 interface AddPrimCln extends ManagerAuthI {
     cleanerId: string
+    overrideDistance: boolean
 }
 
 /**
@@ -93,7 +94,7 @@ managerAuth,
 async (req: Request<AptToUnitI, {}, AddPrimCln>, res: Response) => {
     try {
         const { aptId } = req.params
-        const { cleanerId } = req.body
+        const { cleanerId, overrideDistance } = req.body
 
         const apt = await Apt.findById(aptId)
         if(!apt) throw 'invalid apartment Id'
@@ -103,8 +104,10 @@ async (req: Request<AptToUnitI, {}, AddPrimCln>, res: Response) => {
 
         if(apt.primaryCleaner?.toString() === cleaner.id) throw 'already a primary cleaner'
 
-        const distance = await getDistanceById(apt.address, cleaner.address)
-        if(distance.distanceInMeters > 32_186.9) throw `${cleaner.name} is to far`
+        if(!overrideDistance) {
+            const distance = await getDistanceById(apt.address, cleaner.address)
+            if(distance.distanceInMeters > 32_186.9) throw `${cleaner.name} is too far`
+        }
 
         apt.primaryCleaner = cleaner._id
         
@@ -133,7 +136,7 @@ managerAuth,
 async (req: Request<AptToUnitI, {}, AddPrimCln>, res: Response) => {
     try {
         const { aptId } = req.params
-        const { cleanerId } = req.body
+        const { cleanerId, overrideDistance } = req.body
 
         const apt = await Apt.findById(aptId)
         if(!apt) throw 'invalid apartment Id'
@@ -143,8 +146,10 @@ async (req: Request<AptToUnitI, {}, AddPrimCln>, res: Response) => {
 
         if(idToString(apt.goToCleaners).includes(cleanerId)) throw 'This cleaner is already attached to apartment' 
 
-        const distance = await getDistanceById(apt.address, cleaner.address)
-        if(distance.distanceInMeters > 32_186.9) throw `${cleaner.name} is to far`
+        if(!overrideDistance) {
+            const distance = await getDistanceById(apt.address, cleaner.address)
+            if(distance.distanceInMeters > 32_186.9) throw `${cleaner.name} is too far`
+        }
 
         apt.goToCleaners.push(cleaner._id)
 

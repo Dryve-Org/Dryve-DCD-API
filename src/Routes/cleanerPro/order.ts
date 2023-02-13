@@ -83,9 +83,8 @@ async (req: Request<{orderId: string}, {}, addServices>, res: Response) => {
         const { orderId } = req.params
         const { attachedCleaners, desiredServices } = req.body
 
-        const order = await Order.findById(orderId)
+        const order = await Order.findById(orderId, CleanerProOrderSelect)
             .populate(CleanerProOrderPopulate)
-            .select(CleanerProOrderSelect)
 
         if(!order) throw 'invalid order id'
 
@@ -96,7 +95,9 @@ async (req: Request<{orderId: string}, {}, addServices>, res: Response) => {
         }
 
         const validStatuses: OrderstatusT[] = [
-            'Clothes Awaiting Pricing'
+            'Clothes Awaiting Pricing',
+            'Clothes Being Cleaned',
+            'Clothes Ready'
         ]
 
         if(order.orderPaidfor) throw 'Order was already paid for'
@@ -104,7 +105,9 @@ async (req: Request<{orderId: string}, {}, addServices>, res: Response) => {
             throw 'Cannot update desired services at this point'
         }
 
-        order.status = 'Clothes Being Cleaned'
+        order.status = order.status === 'Clothes Awaiting Pricing' ?
+        'Clothes Being Cleaned' :
+        order.status
 
         await order.updateDesiredServices(desiredServices)
 
@@ -155,6 +158,7 @@ async (req: Request<{orderId: string}, {}, addServices>, res: Response) => {
 
         const validStatuses: OrderstatusT[] = [
             'Clothes Being Cleaned',
+            'Clothes Ready'
         ]
 
         if(!validStatuses.includes(order.status)) {

@@ -5,6 +5,16 @@ import Service from "../Models/services.model";
 type IdI = Types.ObjectId | string
 
 /**
+ * It takes a number and a string and returns an object with two properties, status and message.
+ * @param {number} status - The HTTP status code
+ * @param {string} message - The message to be displayed to the user.
+ */
+export const err = (status: number, message: string) => ({
+    status,
+    message
+})
+
+/**
  * It takes an array of IdI or a single IdI and returns an array of strings
  * @param {IdI | IdI[]} ids - IdI | IdI[]
  * @returns An array of strings.
@@ -38,6 +48,11 @@ export const intersectIds = (listOne: IdI[], listTwo: IdI[]): string[] => {
 }
 
 export interface desiredServicesI {
+    /**
+     * Weight of the item in pounds
+     * if perPound is true, this is required to calculate the price
+     */
+    weight: number,
     quantity: number,
     service: string //stored prices of each service
 }
@@ -51,7 +66,7 @@ export interface desiredServicesI {
  * @param {desiredServicesI[]} desiredServices - desiredServicesI[]
  * @returns {
  *     total: number,
- *     serviceWithPrice: desiredServicesI[]
+ *     servicesWithPrice: desiredServicesI[]
  * }
  */
 export const handleDesiredServices = async (
@@ -69,14 +84,27 @@ export const handleDesiredServices = async (
     
     let total: number = 0
 
-    const serviceWithPrice = desiredServices.map(service => {
+    const servicesWithPrice = desiredServices.map(service => {
         const match = _.find(services, { _id: stringToId(service.service)[0] })
         if(!match) throw 'unable to handle services'
+
+        if(match.perPound) {
+            const cost = match.price * service.weight * service.quantity
+
+            total += cost
+
+            return {
+                quantity: service.quantity,
+                cost,
+                service: match
+            }
+        }
+
         const cost = match.price * service.quantity
         total += cost
 
         return {
-            ...service,
+            quantity: service.quantity,
             cost,
             service: match
         }
@@ -84,6 +112,6 @@ export const handleDesiredServices = async (
 
     return {
         total,
-        serviceWithPrice
+        servicesWithPrice
     }
 }

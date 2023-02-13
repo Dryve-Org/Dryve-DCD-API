@@ -570,7 +570,6 @@ AptSchema.method<AptDocT>('removeOrderToUnit', async function(
     
     if(apt.buildings.get(buildingId)) err(400, 'could not find building')
     if(!unit) throw err(400, 'could not find unit')
-    if(!unit.activeOrder) throw err(400, 'no existing active order in this unit')
 
     apt.buildings.get(buildingId)?.units.set(unitId, {
         address: unit.address,
