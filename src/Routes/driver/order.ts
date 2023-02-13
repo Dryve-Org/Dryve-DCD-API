@@ -613,7 +613,9 @@ async (req: Request<{ cleanerId: string }, {}, CleanerPickupI>, res: Response) =
 
             order.status = 'Picked Up From Cleaner'
             order.cleanerPickupTime = now()
-
+            
+            order.invoiceClient()
+            
             order.save()
         }
 

@@ -119,7 +119,8 @@ async (req: Request<{ clnId: string }, {}, AddServiceI>, res: Response) => {
         const svc = await Service.create({
             title: service.title,
             description: service.description,
-            price: service.price
+            price: service.price,
+            perPound: service.perPound || false
         })
         .catch((e) => { console.log(e); throw e })
 

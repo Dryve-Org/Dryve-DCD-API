@@ -22,6 +22,7 @@ interface PostOrderBody extends authBodyI {
     pickUpDriver?: string
     dropOffDriver?: string
     desiredServices: {
+        weight: number,
         quantity: number,
         service: string //stored prices of each service
     }[]

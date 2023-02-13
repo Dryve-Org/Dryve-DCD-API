@@ -5,7 +5,7 @@ import { Types } from 'mongoose'
 import { getAptById } from '../../constants/apartment'
 import { sendEmailVerify } from '../../constants/email/setup'
 import { now } from '../../constants/time'
-import { noUnMatchingIds, servicesExist } from '../../constants/validation'
+import { isMatchingIds, noUnMatchingIds, servicesExist } from '../../constants/validation'
 import { driverAuth, DriverAuthI } from '../../middleware/auth'
 import Apt from '../../Models/apartment.model'
 import Cleaner from '../../Models/cleaner.model'
@@ -284,14 +284,14 @@ async (req: Request<{ orderId: string, clnId: string }, {}, DriverAuthI>, res: R
         order.status = 'Picked Up From Cleaner'
         order.cleanerPickupTime = now()
         order.pickUpDriver = driver._id
+        await order.invoiceClient()
 
-        order.save()
-            .then(() => {
-                res.status(200).send(order)
-            })
+        await order.save()
             .catch(() => {
                 res.status(500).send('Could not save updated order after validation')
             })
+
+        res.status(200).send(order)
     } catch(e) {
         res.status(400).send(e)
     }
@@ -321,12 +321,11 @@ async (req: Request<{ clnId: string }, {}, PickupsReqI>, res: Response) => {
             .populate(driverCleanerPopulate)
 
         if(!cleaner) throw 'invalid cleaner id'
-
+        
+        /**
+         * cleaner active order ids
+         */
         const cleanerAOIds = cleaner.activeOrders.map(aO => aO._id.toString())
-
-        if(noUnMatchingIds(cleanerAOIds, orderIds)) {
-            throw 'cleaner does not have one these orders'
-        }
 
         const orders = await Order.find({
             _id: { $in: orderIds }
@@ -341,6 +340,21 @@ async (req: Request<{ clnId: string }, {}, PickupsReqI>, res: Response) => {
 
         driver.addActiveOrders(orderIds)
         cleaner.removeActiveOrders(orderIds)
+
+        for(const order of orders) {
+            //is this cleaner attached to this order
+            if(!isMatchingIds(order.cleaner, cleaner._id)) throw (
+                `orderId: ${ order._id } is not with this cleaner`
+            )
+
+            order.status = 'Picked Up From Cleaner'
+            order.pickUpDriver = driver._id,
+            order.cleanerPickupTime = now()
+            
+            await order.invoiceClient()
+            
+            order.save()
+        }
 
         Order.updateMany({
             _id: { $in: orderIds }
@@ -398,14 +412,28 @@ async (req: Request<{ orderId: string, clnId: string }, {}, DriverAuthI>, res: R
         order.status = 'Picked Up From Cleaner'
         order.cleanerPickupTime = now()
         order.pickUpDriver = driver._id
+        await order.invoiceClient()
+        
 
         order.save()
-            .then(() => {
-                res.status(200).send(order)
-            })
             .catch(() => {
                 res.status(500).send('Could not save updated order after validation')
             })
+
+        await order.save()
+            .catch(() => {
+                res.status(500).send('Could not save updated order after validation')
+            })
+        
+        const sendOrder = await Order.findById(orderId, driverOrderSelect)
+            .populate(driverOrderPopulate)
+        
+        if(!sendOrder) {
+            res.status(500).send('Could not get updated order')
+            return
+        }
+
+        res.status(200).send(sendOrder)
     } catch(e) {
         res.status(400).send(e)
     }
@@ -429,7 +457,7 @@ async (req: Request<{ orderId: string }, {}, DriverAuthI>, res: Response) => {
         if(!order) throw 'invalid order Id'
 
         driver.removeActiveOrder(orderId)
-
+        
         if(order.orderPaidfor || true) {
             const apt = await Apt.findById(order.apartment._id)
             if(!apt) {

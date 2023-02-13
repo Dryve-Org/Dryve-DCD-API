@@ -19,6 +19,15 @@ export interface ServiceI {
      * Price Id with stripe
     */
     priceId: string
+    /**
+     * If the price is per pound
+    */
+    perPound: boolean
+    /**
+     * Weight of the clothes in pounds
+     * if perPound is true, this is required to calculate the price
+    */
+    weight: number
 }
 
 interface ServiceMethodsI {
@@ -43,6 +52,10 @@ const ServiceSchema = new Schema<ServiceI, ServiceModelT, ServiceMethodsI>({
         type: String,
     },
     description: String,
+    perPound: {
+        type: Boolean,
+        default: false
+    }
 })
 
 ServiceSchema.plugin(MongooseFindByReference)
