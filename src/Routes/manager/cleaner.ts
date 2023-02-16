@@ -5,6 +5,9 @@ import Address, { AddressI } from '../../Models/address.model'
 import Cleaner from '../../Models/cleaner.model'
 import v from 'validator'
 import Service, { ServiceI } from '../../Models/services.model'
+import { idToString } from '../../constants/general'
+import { StringDecoder } from 'string_decoder'
+import { String } from 'lodash'
 
 
 const cleanerR = express.Router()
@@ -17,7 +20,6 @@ interface AddCleanerI extends ManagerAuthI {
 
 /**
  * Create a cleaner
- * *NOT TESTED
 */ 
 cleanerR.post(
 '/cleaner/add_cleaner',
@@ -143,6 +145,88 @@ async (req: Request<{ clnId: string }, {}, AddServiceI>, res: Response) => {
             })
     } catch(e) {
         res.status(400).send(e)
+    }
+})
+
+cleanerR.post(
+'/cleaner/:clnId/set_min_price/:svcId',
+managerAuth,
+async (req: Request<{ clnId: string, svcId: string }, {}, ManagerAuthI>, res: Response) => {
+    try {
+        const { clnId, svcId } = req.params
+
+        const cleaner = await Cleaner.findById(clnId)
+        if(!cleaner) {
+            throw {
+                message: 'invalid cleaner id',
+                status: 400
+            }
+        }
+
+       const cln = await cleaner.setMinPrice(svcId)
+        
+       await cln.populate([
+            {
+                path: 'services',
+                model: 'Service'
+            },
+            {
+                path: 'minPriceServiceId',
+                model: 'Service'
+            },
+            {
+                path: 'address',
+                model: 'Address'
+            }
+       ])
+       
+
+        res.status(200).send(cln)
+    } catch(e: any) {
+        res.status(e.status).send(e.message)
+    }
+})
+
+interface setUseMinPriceI extends ManagerAuthI {
+    useMinPrice: boolean
+}
+
+cleanerR.post(
+'/cleaner/:clnId/set_use_min_price',
+managerAuth,
+async (req: Request<{ clnId: String }, {}, setUseMinPriceI>, res: Response) => {
+    try {
+        const { clnId } = req.params
+        const { useMinPrice } = req.body
+
+        const cleaner = await Cleaner.findById(clnId)
+        .populate([
+            {
+                path: 'services',
+                model: 'Service'
+            },
+            {
+                path: 'minPriceServiceId',
+                model: 'Service'
+            },
+            {
+                path: 'address',
+                model: 'Address'
+            }
+        ])
+        
+        if(!cleaner) {
+            throw {
+                message: 'invalid cleaner id',
+                status: 400
+            }
+        }
+
+       const cln = await cleaner.setUseMinPrice(useMinPrice)
+       
+        res.status(200).send(cln)
+    } catch(e: any) {
+        res.status(e.status).send(e.message)
     }
 })
 

@@ -6,7 +6,7 @@ import { desiredServicesI, err, handleDesiredServices } from '../constants/gener
 import { createPaymentIntent, stripe, updateAmount } from '../constants/moneyHandling'
 import { invoiceEmail, transporter } from '../constants/email/setup'
 import { UserI } from './user.model'
-import { CleanerI } from './cleaner.model'
+import Cleaner, { CleanerI } from './cleaner.model'
 import e from 'express'
 
 export type OrderDocT = mongoose.Document<unknown, any, OrderI> & OrderI & {
@@ -322,14 +322,31 @@ OrderSchema.method<OrderDocT>('invoiceClient', async function() {
         throw err(400, 'no desired services')
     }
 
-    const handleServices = await handleDesiredServices(order.desiredServices)
+    const cleaner = await Cleaner.findById(order.cleaner)
+    if(!cleaner) {
+        console.error(`no cleaner found for order ${order._id}`)
+        throw err(400, 'no cleaner found in order')
+    }
 
-    if(!order.paymentLinkURL) {
+    const handleServices = cleaner.useMinPrice ?
+    await handleDesiredServices(
+        order.desiredServices,
+        cleaner.minPrice,
+        cleaner.minPriceServiceId.toString()
+    ) :
+    await handleDesiredServices(order.desiredServices)
+
+    if(!order.paymentLinkURL || true) {
+        const lineItems = handleServices.servicesWithPrice.map((dS) => ({
+            price: dS.service.priceId,
+            quantity: dS.quantity,
+        }))
+        
         const paymentLink = await stripe.paymentLinks.create({
-            line_items: handleServices.servicesWithPrice.map((dS) => ({
-                price: dS.service.priceId,
-                quantity: dS.quantity || 1,
-            })),
+            line_items: lineItems,
+            // automatic_tax: {
+            //     enabled: true
+            // },
             billing_address_collection: 'required'
         })
         order.paymentLinkId = paymentLink.id
