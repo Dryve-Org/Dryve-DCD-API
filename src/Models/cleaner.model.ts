@@ -1,7 +1,9 @@
 import mongoose, { Schema, model, Types, Model } from 'mongoose'
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
 import validator from 'validator'
+import { idToString } from '../constants/general';
 import { cleanerExist } from '../constants/validation';
+import Service from './services.model';
 
 export type ClnDocT = mongoose.Document<unknown, any, CleanerI> & CleanerI & {
     _id: mongoose.Types.ObjectId;
@@ -19,6 +21,9 @@ export interface CleanerI {
     services: Types.ObjectId[]
     activeOrders: Types.ObjectId[]
     orders: Types.ObjectId[]
+    minPriceServiceId: Types.ObjectId
+    minPrice: number
+    useMinPrice: boolean
 }
 
 interface ClnMethodsI {
@@ -45,6 +50,25 @@ interface ClnMethodsI {
     */
     removeActiveOrders(
         orderIds: string[] | Types.ObjectId[]
+    ): ClnDocT
+    
+    /**
+     * set the minimum price for a service
+     * 
+     * @param {string | Types.ObjectId} serviceId 
+    */
+    setMinPrice(
+        serviceId: string | Types.ObjectId,
+    ): ClnDocT
+
+    /**
+     * update whether or not to use the minimum price
+     * 
+     * @param {boolean} useMinPrice
+    */
+    setUseMinPrice(
+        /* A boolean that determines whether or not to use the minimum price for a service. */
+        useMinPrice: boolean
     ): ClnDocT
 }
 
@@ -91,7 +115,20 @@ const CleanerSchema = new Schema<CleanerI, ClnModelT, ClnMethodsI>({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Order',
         default: []
-    }]
+    }],
+    minPriceServiceId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Service',
+        default: null
+    },
+    minPrice: {
+        type: Number,
+        default: 0
+    },
+    useMinPrice: {
+        type: Boolean,
+        default: false
+    }
 })
 
 CleanerSchema.plugin(MongooseFindByReference)
@@ -141,6 +178,67 @@ CleanerSchema.method<ClnDocT>('removeActiveOrders', async function(
             activeOrders: orderIds
         }
     })
+
+    return cln
+})
+
+CleanerSchema.method<ClnDocT>('setMinPrice', async function(
+    serviceId: string | Types.ObjectId
+) {
+    const cln = this as ClnDocT
+
+    if(!idToString(cln.services).includes(serviceId.toString())) {
+        throw {
+            message: 'cleaner does not provide this service or invalid service id',
+            status: 400
+        }
+    }
+
+    const service = await Service.findById(serviceId)
+    if(!service) {
+        console.error('service id could not be found after checking if cleaner provides service')
+        throw {
+            message: 'service id could not be found after checking if cleaner provides service',
+            status: 500
+        }
+    }
+
+    await cln.update({
+        minPriceServiceId: serviceId,
+        minPrice: service.price
+    }).catch(err => {
+        console.error(err)
+        throw {
+            message: 'could not update cleaner min price after proper validation',
+            status: 500
+        }
+    })
+
+    return cln
+})
+
+CleanerSchema.method<ClnDocT>('setUseMinPrice', async function(
+    useMinPrice: boolean
+) {
+    const cln = this as ClnDocT
+
+    if(useMinPrice && !cln.minPriceServiceId) {
+        throw {
+            message: 'cleaner does not have a minimum price set',
+            status: 400
+        }
+    }
+
+    await cln.update({ useMinPrice })
+    .catch(err => {
+        console.error(err)
+        throw {
+            message: 'could not update cleaner min price after proper validation',
+            status: 500
+        }
+    })
+
+    cln.useMinPrice = useMinPrice
 
     return cln
 })

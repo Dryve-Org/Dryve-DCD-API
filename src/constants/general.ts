@@ -64,13 +64,17 @@ export interface desiredServicesI {
  * in the object with its corresponse quantity.
  * 
  * @param {desiredServicesI[]} desiredServices - desiredServicesI[]
+ * @param {minPrice} number - minimum price of the order
+ * @param {minProductId} serviceId - serviceId of the minimum price product
  * @returns {
  *     total: number,
  *     servicesWithPrice: desiredServicesI[]
  * }
  */
 export const handleDesiredServices = async (
-    desiredServices: desiredServicesI[]
+    desiredServices: desiredServicesI[],
+    minPrice?: number,
+    minProductId?: string,
 ) => {
     const desiredServiceIds = desiredServices.map(service => service.service.toString())
     const services = await Service.find({
@@ -89,12 +93,12 @@ export const handleDesiredServices = async (
         if(!match) throw 'unable to handle services'
 
         if(match.perPound) {
-            const cost = match.price * service.weight * service.quantity
+            let cost: number = match.price * service.weight * service.quantity
 
             total += cost
 
             return {
-                quantity: service.quantity,
+                quantity: Math.round(service.weight),
                 cost,
                 service: match
             }
@@ -109,6 +113,17 @@ export const handleDesiredServices = async (
             service: match
         }
     })
+
+    if(minPrice && total < minPrice && minProductId) {
+        const minProduct = await Service.findById(minProductId)
+        if(!minProduct) throw 'unable to find min product'
+
+        servicesWithPrice.push({
+            quantity: 1,
+            cost: minProduct.price,
+            service: minProduct
+        })
+    }
 
     return {
         total,
