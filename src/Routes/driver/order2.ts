@@ -97,6 +97,7 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
             created: now(),
             pickUpDriver: driver._id,
             apartment: apt._id,
+            aptName: apt.name,
             createdBy: {
                 userType: 'Driver',
                 userTypeId: driver._id
