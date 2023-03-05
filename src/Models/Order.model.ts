@@ -8,6 +8,7 @@ import { invoiceEmail, transporter } from '../constants/email/setup'
 import { UserI } from './user.model'
 import Cleaner, { CleanerI } from './cleaner.model'
 import e from 'express'
+import { AptI } from './apartment.model'
 
 export type OrderDocT = mongoose.Document<unknown, any, OrderI> & OrderI & {
     _id: mongoose.Types.ObjectId
@@ -100,6 +101,7 @@ export interface OrderI {
     isDropOff?: boolean
     desiredServices: desiredServicesI[]
     apartment: Types.ObjectId
+    aptName: AptI['name']
     building: string,
     unit: string
     createdBy: {
@@ -278,6 +280,7 @@ const OrderSchema = new Schema<OrderI, OrderModelT, OrderMethodsI>({
         type: Schema.Types.ObjectId,
         ref: 'Apartment'
     },
+    aptName: String,
     building: String,
     unit: String,
     createdBy: {
@@ -336,7 +339,7 @@ OrderSchema.method<OrderDocT>('invoiceClient', async function() {
     ) :
     await handleDesiredServices(order.desiredServices)
 
-    if(!order.paymentLinkURL || true) {
+    if(!order.paymentLinkURL) {
         const lineItems = handleServices.servicesWithPrice.map((dS) => ({
             price: dS.service.priceId,
             quantity: dS.quantity,
