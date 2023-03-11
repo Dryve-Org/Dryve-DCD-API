@@ -42,7 +42,8 @@ export const CleanerProOrderPopulate = [
             email: 1,
             website: 1,
             address: 1,
-            activeOrders: 1
+            activeOrders: 1,
+            machines: 1,
         }
     },
     {
