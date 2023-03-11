@@ -1,4 +1,4 @@
-import Apt, { AptDocT } from "../Models/apartment.model"
+import Apt, { AptDocT } from "../Models/aparmtent/apartment.model"
 
 /**
  * Get Apartment By Id and will throw if cant receive it

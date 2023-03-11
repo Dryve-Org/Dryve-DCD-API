@@ -4,7 +4,7 @@ import validator from 'validator'
 import { isUnixDate, now } from '../constants/time'
 import Manager, { ManagerI } from './manager.models'
 import bcrypt from 'bcrypt'
-import Apt from './apartment.model'
+import Apt from './aparmtent/apartment.model'
 import jwt from 'jsonwebtoken'
 
 export interface AptManI {

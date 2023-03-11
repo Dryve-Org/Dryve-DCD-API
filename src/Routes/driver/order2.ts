@@ -7,7 +7,7 @@ import { sendEmailVerify } from '../../constants/email/setup'
 import { now } from '../../constants/time'
 import { isMatchingIds, noUnMatchingIds, servicesExist } from '../../constants/validation'
 import { driverAuth, DriverAuthI } from '../../middleware/auth'
-import Apt from '../../Models/apartment.model'
+import Apt from '../../Models/aparmtent/apartment.model'
 import Cleaner from '../../Models/cleaner.model'
 import Order from '../../Models/Order.model'
 import User from '../../Models/user.model'
@@ -471,7 +471,8 @@ async (req: Request<{ orderId: string }, {}, DriverAuthI>, res: Response) => {
 
             order.orderClosed = true
             apt.removeOrderToUnit(order.building, order.unit)
-                .catch(() => {
+                .catch((e) => {
+                    console.log(e)
                     res.status(500).send(`
                         Could not remove order from unit
                     `)

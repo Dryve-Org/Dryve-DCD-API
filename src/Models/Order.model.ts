@@ -8,7 +8,7 @@ import { invoiceEmail, transporter } from '../constants/email/setup'
 import { UserI } from './user.model'
 import Cleaner, { CleanerI } from './cleaner.model'
 import e from 'express'
-import { AptI } from './apartment.model'
+import { AptI } from './aparmtent/apartment.model'
 
 export type OrderDocT = mongoose.Document<unknown, any, OrderI> & OrderI & {
     _id: mongoose.Types.ObjectId

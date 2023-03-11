@@ -1,13 +1,14 @@
 require('dotenv').config()
 import _ from 'lodash'
 import mongoose, { Schema, model, Types, Model } from 'mongoose'
-import { addAddress } from '../constants/location'
-import Address, { AddressDocT, AddressI } from './address.model'
-import User from './user.model'
+import { addAddress } from '../../constants/location'
+import Address, { AddressDocT, AddressI } from '../address.model'
+import User from '../user.model'
 import v from 'validator'
-import { idToString } from '../constants/general'
+import { idToString } from '../../constants/general'
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
-import { sendEmailVerify } from '../constants/email/setup'
+import { sendEmailVerify } from '../../constants/email/setup'
+import { activateUnit, generateId, getBuilding } from './methods'
 
 export type AptDocT = mongoose.Document<unknown, any, AptI> & AptI & {
     _id: mongoose.Types.ObjectId
@@ -18,38 +19,20 @@ export interface UnitI {
     isActive?: boolean
     address: Types.ObjectId
     activeOrder?: Types.ObjectId
+    unitId?: string
 }
 
-export interface AptBuildingI {
+export interface AptBuildingI  {
     //*building addresses cannot use street_address_line_2
     address: Types.ObjectId,
     units: Types.Map<UnitI>
 }
 
-export interface AptI {
-    name: string,
-    address: Types.ObjectId
-    email: string
-    buildings: Types.Map<AptBuildingI>
-    /**
-     * The first cleaner to go to.
-    */
-    primaryCleaner: Types.ObjectId
-    /** 
-     * designated cleaners for this apartments
-     * clothes to go to
-    */
-    goToCleaners: Types.ObjectId[]
-    createdBy: {
-        userType: 'manager'
-        userTypeId: Types.ObjectId
-    },
-    paidFor: boolean
-}
-
 interface AptIMethods {
     /**
      * get building
+     * @param {string} buildingId - string - building identifier
+     * @return {AptBuildingI} - building
     */
     getBuilding(buildingId: string): AptBuildingI,
 
@@ -189,12 +172,62 @@ interface AptIMethods {
         buildingId: string,
         unitId: string
     ): Promise<AptDocT>
+
+    /**
+     * Generate a unique id for the apartment
+     * @param {number} num - number - apartment number
+     * @return {string} - unique id
+     * @example
+     * generateId(1) // returns A01
+     * generateId(26) // returns B01
+     * generateId(27) // returns B02
+     * generateId(52) // returns C02
+    */
+    generateId(this: AptDocT): Promise<string>
+
+    /**
+     * creates the id for the unit
+     * 
+     * @param this 
+     * @param buildingId 
+     * @param unitId 
+     */
+    generateUnitId(
+        this: AptDocT,
+        buildingId: string,
+        unitId: string
+    ): Promise<string>
 }
+
+
+export interface AptI extends AptIMethods{
+    name: string,
+    address: Types.ObjectId
+    email: string
+    buildings: Types.Map<AptBuildingI>
+    /**
+     * The first cleaner to go to.
+    */
+    primaryCleaner: Types.ObjectId
+    /** 
+     * designated cleaners for this apartments
+     * clothes to go to
+    */
+    goToCleaners: Types.ObjectId[]
+    createdBy: {
+        userType: 'manager'
+        userTypeId: Types.ObjectId
+    },
+    paidFor: boolean
+    aptId: string
+    unitIndex: number
+}
+
 
 type AptModelT = Model<AptI, {}, AptIMethods>
 
 /**
- * Creating a schema for an apartment complex
+ * Schema for an apartment complex
 */
 const AptSchema = new Schema<AptI, AptModelT, AptIMethods>(
     {
@@ -236,6 +269,10 @@ const AptSchema = new Schema<AptI, AptModelT, AptIMethods>(
                             type: Schema.Types.ObjectId,
                             ref: 'Order'
                         },
+                        unitId: {
+                            type: String,
+                            required: true
+                        },
                         default: {}
                     }
                 }
@@ -263,6 +300,13 @@ const AptSchema = new Schema<AptI, AptModelT, AptIMethods>(
                 type: Schema.Types.ObjectId,
                 refPath: 'userType',
             }
+        },
+        aptId: {
+            type: String,
+        },
+        unitIndex: {
+            type: Number,
+            default: 1
         }
     },
     {
@@ -282,17 +326,37 @@ const err = (status: number, message: string) => ({
     message
 })
 
-AptSchema.method<AptDocT>('getBuilding', function(
-    buildingId: string
-) {
-    const apt = this as AptDocT
+AptSchema.method('generateId', generateId)
 
-    const building = apt.buildings.get(buildingId)
+AptSchema.pre('save', async function (this: AptDocT, next) { //must use ES5 function to use the "this" binding
+    try { 
+        const apt = this
+        if(!apt.aptId) await apt.generateId()
+        if(!apt.unitIndex) apt.unitIndex = 1
 
-    if(!building) throw new Error('building not found')
+        //loop through buildings and units and generate ids if they don't have one
+        for(const building of apt.buildings.entries()) {
+            for(const unit of building[1].units.entries()) {
+                if(!unit[1].unitId) {
+                    apt.buildings.get(building[0])?.units.set(unit[0], {
+                        address: unit[1].address,
+                        isActive: unit[1].isActive,
+                        client: unit[1].client,
+                        unitId: `${apt.aptId}-${apt.unitIndex.toString().padStart(3, '0')}`
+                    })
 
-    return building
+                    apt.unitIndex++
+                }
+            }
+        }
+    } catch(e) {
+        throw 'Apartment save failed'
+    }
+
+    next() // without next the function will hang and never save
 })
+
+AptSchema.method<AptDocT>('getBuilding', getBuilding)
 
 AptSchema.method('addBuilding', async function(
     buildingId: string,
@@ -313,7 +377,7 @@ AptSchema.method('addBuilding', async function(
                 ...address,
                 street_address_line_2: `unit ${ unit }`
             }
-    
+
             const unitAddy = await addAddress(unitAddress)
 
             calcedUnits.set(unit, {
@@ -436,12 +500,13 @@ AptSchema.method('addUnits', async function(
 })
 
 AptSchema.method('addClient', async function(
+    this: AptDocT,
     buildingId: string,
     unitId: string,
     email: string,
     isActive?: boolean
 ) {
-    const apt = this as AptDocT
+    const apt = this
 
     if(!v.isEmail(email)) throw err(400,'invalid body: email')
     if(typeof isActive === 'boolean') throw err(400, 'invalid body')
@@ -482,10 +547,9 @@ AptSchema.method('addClient', async function(
     //unit already have a client then they must be removed first
     /* Updating the unit with the client id and isActive. */
     apt.buildings.get(buildingId)?.units.set(unitId, {
-        address: unit.address,
+        ...unit,
         client: client._id,
         isActive: isActive ? isActive : false,
-        activeOrder: unit.activeOrder
     })
 
     await apt.save()
@@ -493,10 +557,11 @@ AptSchema.method('addClient', async function(
 })
 
 AptSchema.method('removeClient', async function(
+    this: AptDocT,
     buildingId: string,
     unitId: string
 ){
-    const apt = this as AptDocT
+    const apt = this
 
     const unit = apt.buildings.get(buildingId)?.units
         .get(unitId)
@@ -508,8 +573,8 @@ AptSchema.method('removeClient', async function(
 
     apt.buildings.get(buildingId)?.units
         .set(unitId, {
+            ...unit,
             client: undefined,
-            address: unit.address,
             isActive: false
         })
     
@@ -517,36 +582,14 @@ AptSchema.method('removeClient', async function(
     return apt
 })
 
-AptSchema.method('activateUnit', async function(
-    buildingId: string, 
-    unitId: string
-) {
-    const apt = this as AptDocT
-    
-    const unit = apt.buildings.get(buildingId)?.units
-        .get(unitId)
-    
-    if(apt.buildings.get(buildingId)) err(400, 'could not find building')
-    if(!unit) throw err(400, 'could not find unit')
-    if(!unit.client) throw err(400, 'client already does not exists')
-    if(unit.isActive) throw err(400, 'unit already active')
-
-    apt.buildings.get(buildingId)?.units.set(unitId, {
-        address: unit.address,
-        client: unit.client,
-        isActive: true,
-        activeOrder: unit.activeOrder
-    })
-
-    await apt.save()
-    return apt
-})
+AptSchema.method('activateUnit', activateUnit)
 
 AptSchema.method('deactivateUnit', async function(
+    this: AptDocT,
     buildingId: string, 
     unitId: string
 ) {
-    const apt = this as AptDocT
+    const apt = this
     
     const unit = apt.buildings.get(buildingId)?.units
         .get(unitId)
@@ -557,8 +600,7 @@ AptSchema.method('deactivateUnit', async function(
     if(unit.activeOrder) throw err(400, 'order is currently in progress')
 
     apt.buildings.get(buildingId)?.units.set(unitId, {
-        address: unit.address,
-        client: unit.client,
+        ...unit,
         isActive: false,
         activeOrder: undefined
     })
@@ -567,7 +609,8 @@ AptSchema.method('deactivateUnit', async function(
     return apt
 })
 
-AptSchema.method<AptDocT>('addOrderToUnit', async function(
+AptSchema.method('addOrderToUnit', async function(
+    this: AptDocT,
     buildingId: string,
     unitId: string,
     orderId: Types.ObjectId
@@ -595,6 +638,7 @@ AptSchema.method<AptDocT>('addOrderToUnit', async function(
 })
 
 AptSchema.method<AptDocT>('removeOrderToUnit', async function(
+    this: AptDocT,
     buildingId: string,
     unitId: string
 ){
@@ -603,12 +647,11 @@ AptSchema.method<AptDocT>('removeOrderToUnit', async function(
     const unit = apt.buildings.get(buildingId)?.units
         .get(unitId)
     
-    if(apt.buildings.get(buildingId)) err(400, 'could not find building')
+    if(!apt.buildings.get(buildingId)) throw err(400, 'could not find building')
     if(!unit) throw err(400, 'could not find unit')
 
     apt.buildings.get(buildingId)?.units.set(unitId, {
-        address: unit.address,
-        client: unit.client,
+        ...unit,
         isActive: true,
         activeOrder: undefined
     })
@@ -618,14 +661,14 @@ AptSchema.method<AptDocT>('removeOrderToUnit', async function(
 })
 
 AptSchema.method<AptDocT>('getUnit', function(
+    this: AptDocT,
     buildingId,
     unitId
 ) {
     const apt = this
 
-    const unit = apt
-        .buildings.get(buildingId)
-        ?.units.get(unitId)
+    const unit = apt.buildings.get(buildingId)?.units
+        .get(unitId)
 
     if(!unit) {
         throw 'could not find unit'

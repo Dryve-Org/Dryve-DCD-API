@@ -15,7 +15,7 @@ import { CardI } from '../interfaces/moneyHandling'
 import validator from 'validator'
 import { createCard, createStripeCustomer } from '../constants/moneyHandling'
 import Service from '../Models/services.model'
-import Apt from '../Models/apartment.model'
+import Apt from '../Models/aparmtent/apartment.model'
 
 const managerRouter = Router()
 
