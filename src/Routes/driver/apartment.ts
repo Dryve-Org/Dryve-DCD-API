@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express'
 import { driverAuth, DriverAuthI } from '../../middleware/auth'
-import Apt, { AptI } from '../../Models/apartment.model'
+import Apt, { AptI } from '../../Models/aparmtent/apartment.model'
 import Driver from '../../Models/driver.model'
 import { AptToUnitI } from '../interface'
 import AptR from '../manager/apartment'

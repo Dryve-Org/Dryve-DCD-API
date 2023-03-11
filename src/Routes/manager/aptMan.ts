@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express'
 import { now } from '../../constants/time'
 import { managerAuth, ManagerAuthI } from '../../middleware/auth'
-import Apt from '../../Models/apartment.model'
+import Apt from '../../Models/aparmtent/apartment.model'
 import AptMan from '../../Models/aptMan.model'
 import User from '../../Models/user.model'
 
