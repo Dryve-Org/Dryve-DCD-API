@@ -1,14 +1,22 @@
+import { error } from 'console'
 import express, {
     Response,
     Request
 } from 'express'
-import { desiredServicesI, handleDesiredServices, idToString } from '../../constants/general'
+import { desiredServicesI, err, handleDesiredServices, idToString } from '../../constants/general'
 import { now } from '../../constants/time'
 import { cleanerProAuth, CleanerProAuthI } from '../../middleware/auth'
+import Cleaner from '../../Models/cleaner.model'
 import Order, { OrderstatusT } from '../../Models/Order.model'
 import { CleanerProOrderPopulate, CleanerProOrderSelect } from './constants'
 
 const orderR = express.Router()
+
+interface ParamsI {
+    orderId: string
+    machineId: string
+    cleanerId: string
+}
 
 orderR.get(
 '/order/:orderId',
@@ -161,6 +169,15 @@ async (req: Request<{orderId: string}, {}, addServices>, res: Response) => {
             'Clothes Ready'
         ]
 
+        const cleaner = await Cleaner.findById(order.cleaner._id)
+        if(!cleaner) throw 'unable to find cleaner with this order'
+
+        const orderInMachines = cleaner.findOrderInMachines(order._id)
+        if(orderInMachines) {
+            const listMachines = orderInMachines.map(machine => machine.machineId)
+            throw `Order is in machines: ${listMachines}` 
+        }
+
         if(!validStatuses.includes(order.status)) {
             throw 'Cannot update order at this point'
         }
@@ -228,5 +245,77 @@ async (req: Request<{orderId: string}, {}, CleanerProAuthI>, res: Response) => {
         res.status(400).send(e)
     }
 })
+
+/**
+ * Add order to machine
+ * 
+ * @param orderId - order id
+ * @param machineId - machine id
+*/
+orderR.post(
+'/order/:orderId/add_to_machine/:machineId',
+cleanerProAuth,
+async (req: Request<{orderId: string, machineId: string}, {}, CleanerProAuthI>, res: Response) => {
+    try {
+        const { orderId, machineId } = req.params
+        const { attachedCleaners } = req.body
+
+        const order = await Order.findOne(
+            {
+                _id: orderId,
+                cleaner: {
+                    _id: {$in: attachedCleaners }
+                }
+            },
+            CleanerProOrderSelect,
+        )
+        .populate(CleanerProOrderPopulate)
+        if(!order) throw err(400, 'unable to find cleaner with this order')
+
+        const cleaner = await Cleaner.findById(order.cleaner._id)
+        if(!cleaner) throw err(400, 'unable to find cleaner with this order')
+        
+        await cleaner.attachOrderToMachine(machineId, order._id)
+
+
+        res.status(200).send(order)   
+    } catch(e: any) {
+        res.status(e.status).send(e.message)
+    }
+})
+
+/**
+ * Remove order from machine
+ */
+orderR.post(
+'/order/:orderId/remove_from_machine/:machineId',
+cleanerProAuth,
+async (req: Request<{orderId: string, machineId: string}, {}, CleanerProAuthI>, res: Response) => {
+    try {
+        const { orderId, machineId } = req.params
+        const { attachedCleaners } = req.body
+
+        const order = await Order.findOne(
+            {
+                _id: orderId,
+                cleaner: {
+                    _id: {$in: attachedCleaners }
+                }
+            },
+            CleanerProOrderSelect,
+        )
+        .populate(CleanerProOrderPopulate)
+        if(!order) throw err(400, 'unable to find cleaner with this order')
+
+        const cleaner = await Cleaner.findById(order.cleaner._id)
+        if(!cleaner) throw err(400, 'unable to find cleaner with this order')
+
+        await cleaner.detachOrderFromMachine(machineId)
+
+        res.status(200).send(order)
+    } catch(e: any) {
+        res.status(e.status).send(e.message)
+    }
+}) 
 
 export default orderR

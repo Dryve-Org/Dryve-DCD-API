@@ -5,7 +5,7 @@ import Address, { AddressI } from '../../Models/address.model'
 import Cleaner from '../../Models/cleaner.model'
 import v from 'validator'
 import Service, { ServiceI } from '../../Models/services.model'
-import { idToString } from '../../constants/general'
+import { err, idToString } from '../../constants/general'
 import { StringDecoder } from 'string_decoder'
 import { String } from 'lodash'
 
@@ -104,6 +104,9 @@ interface AddServiceI extends ManagerAuthI {
     service: ServiceI
 }
 
+/**
+ * Add a service to a cleaner
+ */
 cleanerR.post(
 '/cleaner/:clnId/add_service',
 managerAuth,
@@ -148,6 +151,9 @@ async (req: Request<{ clnId: string }, {}, AddServiceI>, res: Response) => {
     }
 })
 
+/**
+ * set the minimum price service for a cleaner
+*/
 cleanerR.post(
 '/cleaner/:clnId/set_min_price/:svcId',
 managerAuth,
@@ -191,6 +197,9 @@ interface setUseMinPriceI extends ManagerAuthI {
     useMinPrice: boolean
 }
 
+/**
+ * Set whether or not to use the minimum price service for a cleaner
+ */
 cleanerR.post(
 '/cleaner/:clnId/set_use_min_price',
 managerAuth,
@@ -225,6 +234,34 @@ async (req: Request<{ clnId: String }, {}, setUseMinPriceI>, res: Response) => {
        const cln = await cleaner.setUseMinPrice(useMinPrice)
        
         res.status(200).send(cln)
+    } catch(e: any) {
+        res.status(e.status).send(e.message)
+    }
+})
+
+interface AddMachinesPostI extends ManagerAuthI {
+    type: 'Dryer' | 'Washer',
+    size: 'Small' | 'Medium' | 'Large',
+    quantity: number
+}
+
+/**
+ * add machines to cleaner
+*/
+cleanerR.post(
+'/cleaner/:clnId/add_machines',
+managerAuth, 
+async (req: Request<{ clnId: string }, {}, AddMachinesPostI>, res: Response) => {
+    try {
+        const { clnId } = req.params
+        const { type, size, quantity } = req.body
+
+        const cleaner = await Cleaner.findById(clnId)
+        if(!cleaner) throw err(400, 'invalid cleaner id')
+
+        await cleaner.addMachines(type, size, quantity)
+
+        res.status(200).send(cleaner)
     } catch(e: any) {
         res.status(e.status).send(e.message)
     }
