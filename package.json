@@ -42,6 +42,10 @@
   "keywords": [],
   "author": "Emmanuel Brown",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Dryve-Org/Dryve-DCD-API"
+  },
   "description": "",
   "engines": {
     "yarn": "1.22.19",

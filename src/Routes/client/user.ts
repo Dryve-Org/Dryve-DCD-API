@@ -148,36 +148,19 @@ userRouter.get('/', auth, async (req: Request<{}, {}, authBodyI>, res: Response)
         const { user } = req.body
         const errors: any = {}
 
-        const client = await user
-            .populate<{ address: AddressI }>('address')
-            .then(data => {
-                //@ts-ignore
-                return data._doc
-            })
+        const client = await User.findById(user._id,
+            {
+                password: 0,
+            }    
+        )
+        .populate('address')
 
         if(!client) {
             errors.server = "server error: client retrieval"
             throw errors
         }
 
-        await geoHandleAddress(client.address)
-
-        const { 
-            token, 
-            password,
-            stripeId,
-            __v,
-            ...filteredClient 
-        } = client  
-
-        let cardsData: Stripe.PaymentMethod[]
-
-        cardsData = client.cards && client.cards.length ? await reteiveCards(client.cards) : []
-
-        res.status(200).send({
-            ...filteredClient,
-            cardsData,
-        })
+        res.status(200).send(client)
     } catch(e) {
         res.send(e)
     }
@@ -306,6 +289,27 @@ userRouter.get('/retreive/:field', auth, async (req: Request<getFieldParams, {},
         throw 'invalid parameter'
     } catch(e: any) {
         res.status(400).send(e)
+    }
+})
+
+userRouter.post(
+'/unitId/add/:unitId',
+auth,
+async (req: Request<{ unitId: string }, {}, authBodyI>, res: Response) => {
+    try {
+        const { unitId } = req.params
+        const { user } = req.body
+
+        const client = await user.addUnitId(unitId)
+
+        res.status(200).send(client)
+    } catch(e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+            return
+        } else {
+            res.status(400).send(e)
+        }
     }
 })
 

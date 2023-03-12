@@ -1,11 +1,39 @@
-import mongoose, { Types, model, Schema } from "mongoose"
+import mongoose, { Types, model, Schema, Model } from "mongoose"
 import validator from 'validator'
 import bcrypt from 'bcrypt'
 import { isOfAge, isUnixDate, now } from "../constants/time"
 import jwt from 'jsonwebtoken'
 import { MongooseFindByReference } from "mongoose-find-by-reference"
+import Apt, { UnitI } from "./aparmtent/apartment.model"
+import { err, extractUnitId } from "../constants/general"
 
-export interface UserI {
+export type UserDocT = mongoose.Document<unknown, any, UserI> & UserI & {
+    _id: mongoose.Types.ObjectId
+}
+
+interface UserIMethods {
+    /**
+     * async function to generate a jwt token for the user
+     * @returns { Promise<string> } the jwt token
+    */
+    generateAuthToken(): Promise<string>
+
+    /**
+     * add apartment unit id to the user
+     * @param { string } unitId the unit id to add
+     * @returns { Promise<void> } the refresh token
+    */
+    addUnitId(unitId: string): Promise<UserI>
+
+    /**
+     * remove apartment unit id to the user
+     * @param { string } unitId the unit id to remove
+     * @returns { Promise<UserI> } the refresh token
+    */
+    removeUnitId(unitId: string): Promise<UserI>
+}
+
+export interface UserI extends UserIMethods {
     _id?: any
     firstName: string
     lastName: string
@@ -21,14 +49,16 @@ export interface UserI {
     created: number
     refreshToken?: string
     orders: Types.ObjectId[]
-    generateAuthToken: () => string
     preferredCleaner?: Types.ObjectId 
     pickupAddress?: Types.ObjectId
     preferredCardId: string
     emailVerified: boolean
+    attachedUnitIds: string[]
 }
 
-const UserSchema = new Schema<UserI>({
+type UserModelT = Model<UserI, {}, UserIMethods>
+
+const UserSchema = new Schema<UserI, UserModelT, UserIMethods>({
     firstName: {
         type: String,
         require: true,
@@ -114,13 +144,20 @@ const UserSchema = new Schema<UserI>({
     preferredCardId: String,
     token: String,
     refreshToken: String,
-    emailVerified: Boolean
+    emailVerified: Boolean,
+    attachedUnitIds: [{
+        type: String,
+        default: []
+    }]
 })
 
 UserSchema.plugin(MongooseFindByReference)
 
-UserSchema.methods.generateAuthToken = async function() {
+UserSchema.methods.generateAuthToken = async function(
+    this: UserDocT
+) {
     const user = this
+
     if(!process.env.JWT || !process.env.REFRESHJWT) throw "server error: token"
     const token = jwt.sign(
         {
@@ -135,6 +172,80 @@ UserSchema.methods.generateAuthToken = async function() {
     return token
 }
 
+UserSchema.methods.addUnitId = async function(
+    this: UserDocT,
+    unitId: string
+) {
+    try {
+        const user = this
+    
+        if(user.attachedUnitIds.includes(unitId)) throw err(
+            400, 
+            `unit ${ unitId } already attached`
+        )
+    
+        const [ aptId ] = extractUnitId(unitId)
+    
+        const apt = await Apt.findOne({ aptId }, 
+            {
+                buildings: 1
+            }
+        )
+        if(!apt) throw err(400, 'apartment not found') 
+    
+        const unitData = apt.getUnitId(unitId)
+        if(!unitData) throw err(400, 'unit not found')
+    
+        const [, , unit] = unitData
+    
+        
+        if(unit.client?.toString() !== user._id.toString()) {
+            throw err(400, 'client is not in this unit')
+        }
+
+        user.attachedUnitIds.push(unitId)
+    
+        await user.update({
+            $push: {
+                attachedUnitIds: unitId
+            }
+        })
+
+        return user
+    } catch(e: any) {
+        if(e.status && e.message) throw e
+        console.log(e)
+        throw err(500, e)
+    }
+}
+
+UserSchema.methods.removeUnitId = async function(
+    this: UserDocT,
+    unitId: string
+) {
+    try {
+        const user = this
+    
+        if(!user.attachedUnitIds.includes(unitId)) throw err(
+            400,
+            `unit ${ unitId } not attached`
+        )
+    
+        user.attachedUnitIds = user.attachedUnitIds.filter(id => id !== unitId)
+    
+        await user.update({
+            $pull: {
+                attachedUnitIds: unitId
+            }
+        })
+
+        return user
+    } catch(e: any) {
+        if(e.status && e.message) throw e
+        console.log(e)
+        throw err(500, e)
+    }
+}
 
 //edit: this is not done at all
 // UserSchema.methods.refreshToken = async function(rToken: string) {

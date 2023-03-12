@@ -130,3 +130,21 @@ export const handleDesiredServices = async (
         servicesWithPrice
     }
 }
+
+/**
+ * It takes a string and returns a string with the unitId extracted from the string.
+ * @param {string} unitId - string
+ * @returns string
+ * @example
+ * extractUnitId('A01-001') // returns '['A01', '001']'
+*/
+export const extractUnitId = (
+    unitId: string
+): [string, string] => {
+    const extract = unitId.split('-')
+
+    return [
+        extract[0] || '',
+        extract[1] || ''
+    ]
+}
