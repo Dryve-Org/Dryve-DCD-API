@@ -14,6 +14,8 @@ export type AptDocT = mongoose.Document<unknown, any, AptI> & AptI & {
     _id: mongoose.Types.ObjectId
 }
 
+
+
 export interface UnitI {
     client?: Types.ObjectId
     isActive?: boolean
@@ -197,6 +199,18 @@ interface AptIMethods {
         buildingId: string,
         unitId: string
     ): Promise<string>
+    
+    /**
+     * Get unit by id
+     * 
+     * @param this 
+     * @param unitId 
+     * @return {Promise<[string, unitName, UnitI]>} - [buildingId, unitValue, unit]
+    */
+    getUnitId(
+        this: AptDocT,
+        unitId: string
+    ): [string, string, UnitI] | null
 }
 
 
@@ -222,7 +236,6 @@ export interface AptI extends AptIMethods{
     aptId: string
     unitIndex: number
 }
-
 
 type AptModelT = Model<AptI, {}, AptIMethods>
 
@@ -437,10 +450,11 @@ AptSchema.method('addUnit', async function(
 })
 
 AptSchema.method('addUnits', async function(
+    this: AptDocT,
     buildingId: string,
-    unitIds: string[]
+    unitIds: string[] // unit number not 'A01-001'
 ) {
-    const apt = this as AptDocT
+    const apt = this
 
     const building = apt.buildings.get(buildingId)
     if(!building) throw {
@@ -543,6 +557,7 @@ AptSchema.method('addClient', async function(
     }
 
     await client.save()
+    unit.unitId && client.addUnitId(unit.unitId)
 
     //unit already have a client then they must be removed first
     /* Updating the unit with the client id and isActive. */
@@ -553,6 +568,7 @@ AptSchema.method('addClient', async function(
     })
 
     await apt.save()
+
     return apt
 })
 
@@ -571,12 +587,18 @@ AptSchema.method('removeClient', async function(
     if(!unit.client) throw err(400, 'client already does not exists')
     if(unit?.activeOrder) throw err(400, 'order is currently in progress')
 
+    const client = await User.findById(unit.client)
+    if(!client) throw err(400, 'client does not exist')
+
+    unit.unitId && await client.removeUnitId(unit.unitId)
+
     apt.buildings.get(buildingId)?.units
         .set(unitId, {
             ...unit,
             client: undefined,
             isActive: false
         })
+    
     
     await apt.save()
     return apt
@@ -676,6 +698,24 @@ AptSchema.method<AptDocT>('getUnit', function(
 
     return unit
 })
+
+AptSchema.methods.getUnitId = function(
+    this: AptDocT,
+    unitId: string
+) {
+    const apt = this
+
+    for(let bld of apt.buildings) {
+        for(let unit of bld[1].units) {
+            if(unit[1].unitId === unitId) {
+                return [ bld[0], ...unit ]
+            }
+        }
+    }
+
+    return null
+}
+
 
 const Apt = model<AptI, AptModelT>('Apartment', AptSchema)
 
