@@ -1,7 +1,7 @@
 import mongoose, { Schema, model, Types, Model } from 'mongoose'
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
 import validator from 'validator'
-import { err, idToString } from '../constants/general';
+import { err, idToString, stringToId } from '../constants/general';
 import { now } from '../constants/time';
 import Order from './Order.model';
 import Service from './services.model';
@@ -285,15 +285,14 @@ CleanerSchema.method<ClnDocT>('removeActiveOrder', async function(
 })
 
 CleanerSchema.method<ClnDocT>('removeActiveOrders', async function(
+    this: ClnDocT,
     orderIds: string[] | Types.ObjectId[]
 ) {
-    const cln = this as ClnDocT
+    const cln = this
 
-    //@ts-ignore
     await cln.update({
-        //@ts-ignore
         $pullAll: {
-            activeOrders: orderIds
+            activeOrders: stringToId(orderIds)
         }
     })
 

@@ -179,10 +179,7 @@ UserSchema.methods.addUnitId = async function(
     try {
         const user = this
     
-        if(user.attachedUnitIds.includes(unitId)) throw err(
-            400, 
-            `unit ${ unitId } already attached`
-        )
+        if(user.attachedUnitIds.includes(unitId)) return user
     
         const [ aptId ] = extractUnitId(unitId)
     
@@ -197,7 +194,6 @@ UserSchema.methods.addUnitId = async function(
         if(!unitData) throw err(400, 'unit not found')
     
         const [, , unit] = unitData
-    
         
         if(unit.client?.toString() !== user._id.toString()) {
             throw err(400, 'client is not in this unit')
@@ -226,10 +222,7 @@ UserSchema.methods.removeUnitId = async function(
     try {
         const user = this
     
-        if(!user.attachedUnitIds.includes(unitId)) throw err(
-            400,
-            `unit ${ unitId } not attached`
-        )
+        if(!user.attachedUnitIds.includes(unitId)) return user
     
         user.attachedUnitIds = user.attachedUnitIds.filter(id => id !== unitId)
     

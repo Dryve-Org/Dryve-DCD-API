@@ -1,6 +1,6 @@
 import { Schema, model, Types, Document, Model } from 'mongoose'
 import { MongooseFindByReference } from 'mongoose-find-by-reference';
-import { idToString } from '../constants/general';
+import { idToString, stringToId } from '../constants/general';
 import Order, { OrderDocT } from './Order.model';
 import { PointI, PointSchema } from './point.models'
 
@@ -23,13 +23,16 @@ export interface DriverI {
 }
 
 export interface DriverMethodsI {
-    getActiveOrders(): Promise<OrderDocT[]>
+    getActiveOrders(
+        this: DriverDocT
+    ): Promise<OrderDocT[]>
 
     /**
      * Remove Active Orders
      * @param {string[] | Types.ObjectId[]} orderIds
     */
     removeActiveOrders(
+        this: DriverDocT,
         orderIds: string[] | Types.ObjectId[]
     ): Promise<DriverDocT>
 
@@ -46,6 +49,7 @@ export interface DriverMethodsI {
      * @param {string[] | Types.ObjectId[]} orderIds
     */
     addActiveOrders(
+        this: DriverDocT,
         orderIds: string[] | Types.ObjectId[]
     ): Promise<DriverDocT[]>
 
@@ -54,6 +58,7 @@ export interface DriverMethodsI {
      * @param {string | Types.ObjectId} orderId
     */
     addActiveOrder(
+        this: DriverDocT,
         orderId: string | Types.ObjectId
     ): Promise<DriverDocT>
 }
@@ -98,38 +103,37 @@ const DriverSchema = new Schema<DriverI, DriveModelT, DriverMethodsI>({
 
 DriverSchema.plugin(MongooseFindByReference)
 
-DriverSchema.method<DriverDocT>('getActiveOrders', async function() {
-    const driver = this as DriverDocT
+DriverSchema.methods.getActiveOrders = async function() {
+    const driver = this
 
     const activeOrders = await Order
         .find({$in: driver.activeOrders})
 
     return activeOrders
-})
+}
 
-DriverSchema.method<DriverDocT>('removeActiveOrders', async function(
+DriverSchema.methods.removeActiveOrders = async function(
     orderIds: string[] | Types.ObjectId[]
 ) {
 
-    const driver = this as DriverDocT
+    const driver = this
 
-    //@ts-ignore
     await driver.update({
-        //@ts-ignore
         $pullAll: {
-            activeOrders: orderIds
+            activeOrders: stringToId(orderIds)
         }
     })
 
     return driver
-})
+}
 
-DriverSchema.method<DriverDocT>('addActiveOrders', async function(
+DriverSchema.methods.addActiveOrders = async function(
+    this: DriverDocT,
     orderIds: string[] | Types.ObjectId[]
 ) {
     const driver = this
 
-    await driver.update({
+    return await driver.update({
         $addToSet: {
             activeOrders: {
                 $each: orderIds
@@ -139,38 +143,32 @@ DriverSchema.method<DriverDocT>('addActiveOrders', async function(
             }
         }
     })
+}
 
-    return driver
-})
-
-DriverSchema.method<DriverDocT>('addActiveOrder', async function(
+DriverSchema.methods.addActiveOrder = async function(
     orderId: string | Types.ObjectId
 ) {
     const driver = this
 
-    await driver.update({
+    return await driver.update({
         $addToSet: {
             activeOrders: orderId,
             orders: orderId
         }
     })
+}
 
-    return driver
-})
-
-DriverSchema.method<DriverDocT>('removeActiveOrder', async function(
+DriverSchema.methods.removeActiveOrder = async function(
     orderId: string | Types.ObjectId
 ) {
     const driver = this
 
-    await driver.update({
+    return await driver.update({
         $pull: {
-            activeOrders: orderId
+            activeOrders: stringToId(orderId)
         }
     })
-
-    return driver
-})
+}
 
 const Driver = model('Driver', DriverSchema)
 

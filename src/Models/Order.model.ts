@@ -1,6 +1,6 @@
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
 import mongoose, { Types, model, Schema, Model } from 'mongoose'
-import { isUnixDate } from '../constants/time'
+import { isUnixDate, now } from '../constants/time'
 import { PointI, PointSchema } from './point.models'
 import { desiredServicesI, err, handleDesiredServices } from '../constants/general'
 import { createPaymentIntent, stripe, updateAmount } from '../constants/moneyHandling'
@@ -48,7 +48,7 @@ export const orderStatuses: OrderstatusT[] = [
     "Cancelled"
 ]
 
-export interface OrderI {
+export interface OrderI extends OrderMethodsI {
     client: Types.ObjectId // client
     origin?: Types.ObjectId | string// client pickup and dropoff
     dropOffAddress?: Types.ObjectId
@@ -114,6 +114,15 @@ export interface OrderI {
     cleanerApproved: boolean
     paymentLinkId: string
     paymentLinkURL: string
+    eventLog: {
+        time: number
+        event: string
+        details: string
+        createdby: {
+            userType: string
+            userTypeId: Types.ObjectId
+        }
+    }[]
 }
 
 interface OrderMethodsI {
@@ -132,6 +141,22 @@ interface OrderMethodsI {
      * client will recieve an email with the link.
     */
     invoiceClient(): Promise<OrderDocT>
+
+    /**
+     * adds an event to the order log
+     * 
+     * @param {string} event
+     * @param {string} details
+     * @param {string} userType
+     * @param {Types.ObjectId} userTypeId
+     * @returns {OrderDocT}
+    */
+    addEvent(
+        event: string,
+        details: string,
+        userType?: string,
+        userTypeId?: Types.ObjectId
+    ): Promise<OrderDocT>
 }
 
 export type OrderModelT = Model<OrderI, {}, OrderMethodsI>
@@ -293,7 +318,19 @@ const OrderSchema = new Schema<OrderI, OrderModelT, OrderMethodsI>({
     orderTotal: Number,
     toCleanerDistance: Number,
     fromCleanerDistance: Number,
-    
+    eventLog: [{
+        time: Number,
+        event: String,
+        details: String,
+        createdby: {
+            userType: {
+                type: String
+            },
+            userTypeId: {
+                type: Types.ObjectId
+            }
+        }
+    }]
 })
 
 OrderSchema.plugin(MongooseFindByReference)
@@ -388,6 +425,30 @@ OrderSchema.method<OrderDocT>('invoiceClient', async function() {
     await order.save()
 })
 
+OrderSchema.methods.addEvent = async function(
+    event: string,
+    details: string,
+    userType: string,
+    userTypeId: Types.ObjectId
+) {
+    try {
+        const order = this
+    
+        order.eventLog.push({
+            time: now(),
+            event,
+            details,
+            createdby: {
+                userType,
+                userTypeId
+            }
+        })
+    
+        return await order.save()
+    } catch(e) {
+        console.error('error adding event to order: ', e)
+    }
+}
 const Order = model("Order", OrderSchema)
 
 export default Order
