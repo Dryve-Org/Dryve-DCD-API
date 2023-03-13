@@ -105,9 +105,7 @@ async (req: Request<{aptId: string, bldId: string, unitId: string}, {}, aptManAu
             return res.status(400).send('Unauthorized')
         }
         
-        const apt = await Apt.findById(aptId, {
-            'buildings': 1
-        })
+        const apt = await Apt.findById(aptId)
         if(!apt) {
             return res.status(400).send('Invalid apartment')
         }
@@ -156,16 +154,12 @@ async (req: Request<AptParams, {}, assignUnitI>, res: Response) => {
             return res.status(401).send('Unauthorized to access this apartment')
         }
 
-        const apt = await Apt.findById(aptId, {
-            'buildings': 1
-        })
+        const apt = await Apt.findById(aptId)
         if(!apt) {
             return res.status(400).send('Invalid apartment')
         }
 
         await apt.addClient(bldId, unitId, clientEmail)
-
-        await apt.save()
 
         res.send('Unit assigned')
     } catch(e) {
@@ -185,16 +179,14 @@ async (req: Request<AptParams, {}, assignUnitI>, res: Response) => {
             return res.status(401).send('Unauthorized to access this apartment')
         }
 
-        const apt = await Apt.findById(aptId, {
-            'buildings': 1
-        })
+        const apt = await Apt.findById(aptId)
         if(!apt) {
             return res.status(400).send('Invalid apartment')
         }
 
         await apt.removeClient(bldId, unitId)
 
-        await apt.save()
+        console.log(apt.buildings.get(bldId)?.units.get(unitId))
 
         res.send('Unit unassigned')
     } catch(e) {
@@ -214,10 +206,8 @@ async (req: Request<AptParams, {}, assignUnitI>, res: Response) => {
         if(!idToString(aptMan.attachedApts).includes(aptId)) {
             return res.status(401).send('Unauthorized to access this apartment')
         }
-
-        const apt = await Apt.findById(aptId, {
-            'buildings': 1
-        })
+ 
+        const apt = await Apt.findById(aptId)
         if(!apt) {
             return res.status(400).send('Invalid apartment')
         }
@@ -242,9 +232,7 @@ async (req: Request<AptParams, {}, assignUnitI>, res: Response) => {
             return res.status(401).send('Unauthorized to access this apartment')
         }
 
-        const apt = await Apt.findById(aptId, {
-            'buildings': 1
-        })
+        const apt = await Apt.findById(aptId)
         if(!apt) {
             return res.status(400).send('Invalid apartment')
         }

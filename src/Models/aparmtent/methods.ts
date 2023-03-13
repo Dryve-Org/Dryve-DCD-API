@@ -42,13 +42,9 @@ export async function activateUnit(this: AptDocT,
     if(!unit.client) throw err(400, `there is no client in unit ${unitId}`)
     if(unit.isActive) throw err(400, `unit ${unitId} is already active`)
 
-    apt.buildings.get(buildingId)?.units.set(unitId, {
-        address: unit.address,
-        client: unit.client,
-        isActive: true,
-        activeOrder: unit.activeOrder,
-        unitId: unit.unitId
-    })
+    unit.isActive = true
+
+    apt.buildings.get(buildingId)?.units.set(unitId, unit)
 
     await apt.save()
     return apt
@@ -89,7 +85,6 @@ export async function generateId(
 
     apt.aptId = id
     await master.incrementApartmentIdIndex()
-    await apt.save()
 
     return id
 }

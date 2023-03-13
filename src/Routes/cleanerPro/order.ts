@@ -59,6 +59,7 @@ cleanerProAuth,
 async (req: Request<{orderId: string}, {}, CleanerProAuthI>, res: Response) => {
     try {
         const { orderId } = req.params
+        const { cleanerPro } = req.body
 
         const order = await Order.findById(orderId)
             .populate(CleanerProOrderPopulate)
@@ -68,13 +69,20 @@ async (req: Request<{orderId: string}, {}, CleanerProAuthI>, res: Response) => {
 
         order.cleanerApproved = true
 
-        order.save()
+        await order.save()
             .then(() => {
                 res.status(200).send(order)
             })
             .catch(() => {
                 res.status(500).send('unable to save verified order')
             })
+
+        order.addEvent(
+            'Cleaner Approved Order',
+            'Cleaner approved that the clothes were dropped off and will be handled',
+            'cleaner profile',
+            cleanerPro._id,
+        )
     } catch(e) {
         res.status(400).send(e)
     }
@@ -89,7 +97,7 @@ cleanerProAuth,
 async (req: Request<{orderId: string}, {}, addServices>, res: Response) => {
     try {
         const { orderId } = req.params
-        const { attachedCleaners, desiredServices } = req.body
+        const { attachedCleaners, desiredServices, cleanerPro } = req.body
 
         const order = await Order.findById(orderId, CleanerProOrderSelect)
             .populate(CleanerProOrderPopulate)
@@ -132,13 +140,21 @@ async (req: Request<{orderId: string}, {}, addServices>, res: Response) => {
                 console.log(e)
                 res.status(500).send(e)
             })
+
+        //edit: in the future, add desired service to details in addEvent
+        order.addEvent(
+            'Cleaner Updated Desired Services',
+            'Cleaner updated desired services for this order',
+            'cleaner profile',
+            cleanerPro._id
+        )
     } catch(e) {
         res.status(400).send(e)
     }
 })
 
 /**
- * Ready clothes clothes for pickup from cleaners
+ * Ready clothes for pickup from cleaners
 */
 orderR.put(
 '/order/:orderId/clothes_ready',
@@ -146,7 +162,7 @@ cleanerProAuth,
 async (req: Request<{orderId: string}, {}, addServices>, res: Response) => {
     try {
         const { orderId } = req.params
-        const { attachedCleaners } = req.body
+        const { attachedCleaners, cleanerPro } = req.body
 
         const order = await Order.findOne({
             _id: orderId,
@@ -186,20 +202,27 @@ async (req: Request<{orderId: string}, {}, addServices>, res: Response) => {
         order.cleanFinishTime = now()
         order.status = 'Clothes Ready'
 
-        order.save()
+        await order.save()
             .then(() => {
                 res.status(200).send(order)
             })
             .catch(() => {
                 res.status(500).send('unable to update order to Clothes Ready')
             })
+
+        order.addEvent(
+            'Order is now for ready pick',
+            '',
+            'cleaner profile',
+            cleanerPro._id
+        )
     } catch(e) {
         res.status(400).send(e)
     }
 })
 
 /**
- * Unready clothes clothes for pickup from cleaners
+ * Unready clothes for pickup from cleaners
 */
 orderR.patch(
 '/order/:orderId/clothes_ready',
@@ -207,7 +230,7 @@ cleanerProAuth,
 async (req: Request<{orderId: string}, {}, CleanerProAuthI>, res: Response) => {
     try {
         const { orderId } = req.params
-        const { attachedCleaners } = req.body
+        const { attachedCleaners, cleanerPro } = req.body
 
         const order = await Order.findOne({
             _id: orderId,
@@ -234,13 +257,20 @@ async (req: Request<{orderId: string}, {}, CleanerProAuthI>, res: Response) => {
         order.cleanFinishTime = undefined
         order.status = 'Clothes Being Cleaned'
 
-        order.save()
+        await order.save()
             .then(() => {
                 res.status(200).send(order)
             })
             .catch(() => {
                 res.status(500).send('unable to update order to unReady')
             })
+
+        order.addEvent(
+            'canceled ready clothes',
+            "Canceled clothes that were set to 'ready for pick up'",
+            'cleaner profile',
+            cleanerPro._id
+        )
     } catch(e) {
         res.status(400).send(e)
     }
@@ -258,7 +288,7 @@ cleanerProAuth,
 async (req: Request<{orderId: string, machineId: string}, {}, CleanerProAuthI>, res: Response) => {
     try {
         const { orderId, machineId } = req.params
-        const { attachedCleaners } = req.body
+        const { attachedCleaners, cleanerPro } = req.body
 
         const order = await Order.findOne(
             {
@@ -276,7 +306,13 @@ async (req: Request<{orderId: string, machineId: string}, {}, CleanerProAuthI>, 
         if(!cleaner) throw err(400, 'unable to find cleaner with this order')
         
         await cleaner.attachOrderToMachine(machineId, order._id)
-
+        
+        order.addEvent(
+            `clothes assigned to machine: ${ machineId }`,
+            '',
+            'cleaner profile',
+            cleanerPro._id
+        )
 
         res.status(200).send(order)   
     } catch(e: any) {
@@ -293,7 +329,7 @@ cleanerProAuth,
 async (req: Request<{orderId: string, machineId: string}, {}, CleanerProAuthI>, res: Response) => {
     try {
         const { orderId, machineId } = req.params
-        const { attachedCleaners } = req.body
+        const { attachedCleaners, cleanerPro } = req.body
 
         const order = await Order.findOne(
             {
@@ -311,6 +347,13 @@ async (req: Request<{orderId: string, machineId: string}, {}, CleanerProAuthI>, 
         if(!cleaner) throw err(400, 'unable to find cleaner with this order')
 
         await cleaner.detachOrderFromMachine(machineId)
+        
+        order.addEvent(
+            `clothes unassigned from machine: ${ machineId }`,
+            '',
+            'cleaner profile',
+            cleanerPro._id
+        )
 
         res.status(200).send(order)
     } catch(e: any) {

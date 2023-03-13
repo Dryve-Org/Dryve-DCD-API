@@ -100,8 +100,8 @@ async (req: Request<{clnId: string}, {}, DropOrdersI>, res: Response) => {
             "Clothes To Cleaner"
         ]
 
-        /* Checking if the apartment is attached to the cleaner. */
         for(let order of orders) {
+            /* Checking if the apartment is attached to the cleaner. */
             const apt = order.apartment as unknown as AptDocT
             if(!idToString(apt.goToCleaners).includes(clnId)) {
                 throw `one or more of these orders can't come here because apartment not attached to these cleaners`
@@ -110,7 +110,7 @@ async (req: Request<{clnId: string}, {}, DropOrdersI>, res: Response) => {
                 throw `order "${order.id}" has a status of ${order.status}`
             }
 
-            if(!order.pickUpDriver) throw `This Driver is the pick up driver`
+            if(!order.pickUpDriver) throw `This Driver is not the pick up driver`
 
             /* This is checking if the driver is authorized to handle the order. */
             if(
@@ -119,6 +119,13 @@ async (req: Request<{clnId: string}, {}, DropOrdersI>, res: Response) => {
             ) {
                 throw `This Driver is not authorized to handle order ${ order.id }`
             }
+
+            order.addEvent(
+                'driver',
+                '',
+                'driver',
+                driver._id
+            )
         }
 
         /* Updating the orders with the cleaner id and cleaner address. */
@@ -132,9 +139,9 @@ async (req: Request<{clnId: string}, {}, DropOrdersI>, res: Response) => {
             }
         )
         
-        await cln.addActiveOrders(orderIds)
+        cln.addActiveOrders(orderIds)
 
-        await driver.removeActiveOrders(orderIds)
+        driver.removeActiveOrders(orderIds)
 
         res.status(200).send(orders)
     } catch(e) {

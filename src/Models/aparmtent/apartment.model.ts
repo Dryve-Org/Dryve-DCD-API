@@ -342,27 +342,28 @@ const err = (status: number, message: string) => ({
 AptSchema.method('generateId', generateId)
 
 AptSchema.pre('save', async function (this: AptDocT, next) { //must use ES5 function to use the "this" binding
-    try { 
-        const apt = this
-        if(!apt.aptId) await apt.generateId()
+    try {
+        /*
+            Never let apt save without apt.aptId or apt.unitIndex unless it's a new document
+        */
+        const apt =  this
+        if(!apt.aptId) apt.aptId = await apt.generateId()
         if(!apt.unitIndex) apt.unitIndex = 1
 
         //loop through buildings and units and generate ids if they don't have one
         for(const building of apt.buildings.entries()) {
             for(const unit of building[1].units.entries()) {
                 if(!unit[1].unitId) {
-                    apt.buildings.get(building[0])?.units.set(unit[0], {
-                        address: unit[1].address,
-                        isActive: unit[1].isActive,
-                        client: unit[1].client,
-                        unitId: `${apt.aptId}-${apt.unitIndex.toString().padStart(3, '0')}`
-                    })
+                    unit[1].unitId = `${apt.aptId}-${apt.unitIndex.toString().padStart(3, '0')}`
+
+                    apt.buildings.get(building[0])?.units.set(unit[0], unit[1])
 
                     apt.unitIndex++
                 }
             }
         }
     } catch(e) {
+        console.log(e)
         throw 'Apartment save failed'
     }
 
@@ -479,8 +480,6 @@ AptSchema.method('addUnits', async function(
         status: 500
     }
 
-    const calcedUnits: Map<string, UnitI> = new Map()
-
     for(let unitId of unitIds) {
         const unitAddress = {
             ...buildingAddress,
@@ -549,26 +548,27 @@ AptSchema.method('addClient', async function(
         })
     })
 
-    if(
-        !idToString(client.pickUpAddresses)
-        .includes(unit.address.toString())
-    ) {
+    // if(
+    //     !idToString(client.pickUpAddresses).includes(unit.address.toString())
+    // ) {
+    //     client.pickUpAddresses.push(unit.address)
+    // }
+
+    const clientAddresses = idToString(client.pickUpAddresses)
+    if(!clientAddresses.includes(unit.address.toString())) {
         client.pickUpAddresses.push(unit.address)
     }
 
     await client.save()
     unit.unitId && client.addUnitId(unit.unitId)
 
+    unit.client = client._id
+    unit.isActive = isActive ? isActive : false
     //unit already have a client then they must be removed first
     /* Updating the unit with the client id and isActive. */
-    apt.buildings.get(buildingId)?.units.set(unitId, {
-        ...unit,
-        client: client._id,
-        isActive: isActive ? isActive : false,
-    })
+    apt.buildings.get(buildingId)?.units.set(unitId, unit)
 
     await apt.save()
-
     return apt
 })
 
@@ -592,13 +592,10 @@ AptSchema.method('removeClient', async function(
 
     unit.unitId && await client.removeUnitId(unit.unitId)
 
-    apt.buildings.get(buildingId)?.units
-        .set(unitId, {
-            ...unit,
-            client: undefined,
-            isActive: false
-        })
-    
+    unit.client = undefined
+    unit.isActive = false
+
+    apt.buildings.get(buildingId)?.units.set(unitId, unit)
     
     await apt.save()
     return apt
@@ -621,11 +618,9 @@ AptSchema.method('deactivateUnit', async function(
     if(!unit.client) throw err(400, 'client already does not exists')
     if(unit.activeOrder) throw err(400, 'order is currently in progress')
 
-    apt.buildings.get(buildingId)?.units.set(unitId, {
-        ...unit,
-        isActive: false,
-        activeOrder: undefined
-    })
+    unit.isActive = true
+
+    apt.buildings.get(buildingId)?.units.set(unitId, unit)
 
     await apt.save()
     return apt
@@ -647,12 +642,16 @@ AptSchema.method('addOrderToUnit', async function(
     if(!unit.client) throw err(400, 'client already does not exists')
     if(!unit.isActive) throw err(400, 'unit not active')
 
-    apt.buildings.get(buildingId)?.units.set(unitId, {
-        address: unit.address,
-        client: unit.client,
-        isActive: true,
-        activeOrder: orderId
-    })
+    // apt.buildings.get(buildingId)?.units.set(unitId, {
+    //     ...unit,
+    //     isActive: true,
+    //     activeOrder: orderId
+    // })
+
+    unit.activeOrder = orderId
+    apt.buildings.get(buildingId)?.units.set(unitId, unit)
+
+    // await apt.save()
 
     await apt.save()
 
@@ -672,11 +671,8 @@ AptSchema.method<AptDocT>('removeOrderToUnit', async function(
     if(!apt.buildings.get(buildingId)) throw err(400, 'could not find building')
     if(!unit) throw err(400, 'could not find unit')
 
-    apt.buildings.get(buildingId)?.units.set(unitId, {
-        ...unit,
-        isActive: true,
-        activeOrder: undefined
-    })
+    unit.activeOrder = undefined
+    apt.buildings.get(buildingId)?.units.set(unitId, unit)
 
     await apt.save()
     return apt

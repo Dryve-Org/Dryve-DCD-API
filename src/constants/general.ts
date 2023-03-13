@@ -30,9 +30,19 @@ export const idToString = (ids: IdI | IdI[]): string[] => {
  * @param {string | string[]} ids - string | string[]
  * @returns An array of ObjectIds
 */
-export const stringToId = (ids: string | string[]): Types.ObjectId[] => {
-    if(!Array.isArray(ids)) return [ new mongoose.Types.ObjectId(ids) ]
-    return ids.map(id => new mongoose.Types.ObjectId(id))
+export const stringToId = (
+    ids: string | string[] | Types.ObjectId | Types.ObjectId[]
+): Types.ObjectId[] => {
+    const returnString = (id: string | Types.ObjectId) => typeof id === 'string' ? id : id.toString()
+
+    if(!Array.isArray(ids)) return [ 
+        new mongoose.Types.ObjectId(
+            returnString(ids)
+        ) 
+    ]
+    return ids.map(id => new mongoose.Types.ObjectId(
+        returnString(id)
+    ))
 }
 
 /**

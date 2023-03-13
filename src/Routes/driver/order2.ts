@@ -115,12 +115,19 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         driver.save()
         client.save()
         
-        apt.addOrderToUnit(bldId, unitId, order.id)
+        await apt.addOrderToUnit(bldId, unitId, order.id)
             .catch(() => {
                 console.error(`
-                unable to add order ${order.id} to ${bldId}/${unitId} of ${apt.name}
+                    unable to add order ${order.id} to ${bldId}/${apt} of ${apt.name}
                 `)
             })
+
+        order.addEvent(
+            'Driver created order',
+            '',
+            'driver',
+            driver._id
+        )
         
         res.status(200).send(order)
     } catch(e) {
@@ -146,7 +153,7 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         const apt = await getAptById(aptId)
         const unit = apt.getUnit(bldId, unitId)
         if(!unit.activeOrder) {
-            throw 'order already does not is for this unit'
+            throw 'order already does not have an active order in this unit'
         }
 
         const order = await Order.findById(unit.activeOrder)
@@ -159,7 +166,6 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         if(!client) {
             console.error('client should exist undoubtably here')
         }
-        
 
         /* This is checking if the order was created by the driver. If it was not, then the driver is
         not authorized to cancel the order. */
@@ -201,8 +207,15 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
                 res.status(200).send(order)
             })
             .catch(() => {
-                res.status(500).send('something went wrong saving active.')
+                res.status(500).send('something went wrong saving order.')
             })
+
+        order.addEvent(
+            'Driver cancelled order',
+            '',
+            'driver',
+            driver._id
+        )
     } catch(e) {
         res.status(400).send(e)
     }
@@ -292,6 +305,13 @@ async (req: Request<{ orderId: string, clnId: string }, {}, DriverAuthI>, res: R
                 res.status(500).send('Could not save updated order after validation')
             })
 
+        order.addEvent(
+            'Driver picked up order from cleaner',
+            '',
+            'driver',
+            driver._id
+        )
+
         res.status(200).send(order)
     } catch(e) {
         res.status(400).send(e)
@@ -321,12 +341,7 @@ async (req: Request<{ clnId: string }, {}, PickupsReqI>, res: Response) => {
             .select(driverCleanerSelect)
             .populate(driverCleanerPopulate)
 
-        if(!cleaner) throw 'invalid cleaner id'
-        
-        /**
-         * cleaner active order ids
-         */
-        const cleanerAOIds = cleaner.activeOrders.map(aO => aO._id.toString())
+        if(!cleaner) throw 'invalid cleaner id'    
 
         const orders = await Order.find({
             _id: { $in: orderIds }
@@ -338,7 +353,6 @@ async (req: Request<{ clnId: string }, {}, PickupsReqI>, res: Response) => {
             )
             return
         }
-
         driver.addActiveOrders(orderIds)
         cleaner.removeActiveOrders(orderIds)
 
@@ -354,23 +368,38 @@ async (req: Request<{ clnId: string }, {}, PickupsReqI>, res: Response) => {
             
             await order.invoiceClient()
             
-            order.save()
+            await order.save()
+
+            order.addEvent(
+                'Driver picked up order from cleaner',
+                '',
+                'driver',
+                driver._id
+            )
         }
 
-        Order.updateMany({
-            _id: { $in: orderIds }
-        }, {
-            status: 'Picked Up From Cleaner',
-            pickUpDriver: driver._id,
-            cleanerPickupTime: now()
-        })
-        .then(() => {
-            res.status(200).send(orders)
-        })
-        .catch(() => {
-            res.status(500).send('Could not save updated orders after validation')
-        })
+        // Order.updateMany({
+        //     _id: { $in: orderIds },
+        //     cleaner: clnId
+        // }, {
+        //     status: 'Picked Up From Cleaner',
+        //     pickUpDriver: driver._id,
+        //     cleanerPickupTime: now()
+        // })
+        // .then(order => {
+        //     order.addEvent(
+        //         'Driver picked up order from cleaner',
+        //         '',
+        //         'driver',
+        //         driver._id
+        //     )
+        //     res.status(200).send(orders)
+        // })
+        // .catch(() => {
+        //     res.status(500).send('Could not save updated orders after validation')
+        // })
 
+        res.status(200).send(orders)
     } catch(e) {
         res.status(400).send(e)
     }
@@ -421,10 +450,12 @@ async (req: Request<{ orderId: string, clnId: string }, {}, DriverAuthI>, res: R
                 res.status(500).send('Could not save updated order after validation')
             })
 
-        await order.save()
-            .catch(() => {
-                res.status(500).send('Could not save updated order after validation')
-            })
+        order.addEvent(
+            'Driver picked up order from cleaner',
+            '',
+            'driver',
+            driver._id
+        )
         
         const sendOrder = await Order.findById(orderId, driverOrderSelect)
             .populate(driverOrderPopulate)
@@ -482,8 +513,14 @@ async (req: Request<{ orderId: string }, {}, DriverAuthI>, res: Response) => {
         order.status = 'Complete'
         order.clientDropoffTime = now()
 
-        order.save()
+        await order.save()
             .then(() => {
+                order.addEvent(
+                    'Driver dropped off order to client',
+                    '',
+                    'driver',
+                    driver._id
+                )
                 res.status(200).send(order)
             })
             .catch(() => {
