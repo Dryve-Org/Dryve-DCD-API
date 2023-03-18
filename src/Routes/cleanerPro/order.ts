@@ -361,4 +361,34 @@ async (req: Request<{orderId: string, machineId: string}, {}, CleanerProAuthI>, 
     }
 }) 
 
+orderR.get(
+'/order/unitId/:unitId',
+cleanerProAuth,
+async (req: Request<{unitId: string}, {}, CleanerProAuthI>, res: Response) => {
+    try {
+        const { unitId } = req.params
+        const { attachedCleaners, cleanerPro } = req.body
+
+        const order = await Order.findOne(
+            {
+                unitId,
+                cleaner: {
+                    _id: {$in: attachedCleaners }
+                }
+            },
+            CleanerProOrderSelect,
+        )
+        .populate(CleanerProOrderPopulate)
+        if(!order) throw err(400, 'unable to find this order in your cleaners')
+
+        res.status(200).send(order)
+    } catch(e: any) {
+        if(e.status) {
+            res.status(e.status).send(e.message)
+            return
+        }
+        res.status(500).send(e)
+    }
+})
+
 export default orderR

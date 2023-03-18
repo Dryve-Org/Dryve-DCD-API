@@ -60,7 +60,7 @@ export const driverOrderPopulate = [
         path: 'origin',
         model: 'Address'
     },
-    {
+    { 
         path: 'dropOffAddress',
         model: 'Address'
     }
