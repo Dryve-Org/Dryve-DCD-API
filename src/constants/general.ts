@@ -152,6 +152,7 @@ export const extractUnitId = (
     unitId: string
 ): [string, string] => {
     const extract = unitId.split('-')
+    if(extract[0].length !== 3) return ['', '']
 
     return [
         extract[0] || '',

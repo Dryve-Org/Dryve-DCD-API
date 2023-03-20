@@ -14,8 +14,6 @@ export type AptDocT = mongoose.Document<unknown, any, AptI> & AptI & {
     _id: mongoose.Types.ObjectId
 }
 
-
-
 export interface UnitI {
     client?: Types.ObjectId
     isActive?: boolean
@@ -207,8 +205,7 @@ interface AptIMethods {
      * @param unitId 
      * @return {Promise<[string, unitName, UnitI]>} - [buildingId, unitValue, unit]
     */
-    getUnitId(
-        this: AptDocT,
+    getUnitId<AptDocT>(
         unitId: string
     ): [string, string, UnitI] | null
 }

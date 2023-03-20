@@ -104,6 +104,7 @@ export interface OrderI extends OrderMethodsI {
     aptName: AptI['name']
     building: string,
     unit: string
+    unitId: string
     createdBy: {
         userType: string
         userTypeId: Types.ObjectId
@@ -308,6 +309,7 @@ const OrderSchema = new Schema<OrderI, OrderModelT, OrderMethodsI>({
     aptName: String,
     building: String,
     unit: String,
+    unitId: String,
     createdBy: {
         userType: { 
             type: String 

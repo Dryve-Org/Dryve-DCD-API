@@ -52,6 +52,9 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         const {
             aptId,
             bldId,
+            /**
+             * this is the unit number, not the unit id
+            */
             unitId
         } = req.params
         const { driver } = req.body
@@ -104,7 +107,8 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
             },
             userCard: client.preferredCardId,
             building: bldId,
-            unit: unitId
+            unit: unitId,
+            unitId: unit.unitId
         })
 
         driver.activeOrders.push(order._id)
@@ -377,27 +381,6 @@ async (req: Request<{ clnId: string }, {}, PickupsReqI>, res: Response) => {
                 driver._id
             )
         }
-
-        // Order.updateMany({
-        //     _id: { $in: orderIds },
-        //     cleaner: clnId
-        // }, {
-        //     status: 'Picked Up From Cleaner',
-        //     pickUpDriver: driver._id,
-        //     cleanerPickupTime: now()
-        // })
-        // .then(order => {
-        //     order.addEvent(
-        //         'Driver picked up order from cleaner',
-        //         '',
-        //         'driver',
-        //         driver._id
-        //     )
-        //     res.status(200).send(orders)
-        // })
-        // .catch(() => {
-        //     res.status(500).send('Could not save updated orders after validation')
-        // })
 
         res.status(200).send(orders)
     } catch(e) {

@@ -89,3 +89,103 @@ export const CleanerProCleanerPopulate = [
         model: 'Service'
     }
 ]
+
+/** 
+ * Populating the activeOrder field in the unit model. 
+*/
+const populateUnitOrder = {
+    path: 'buildings.$*.units.$*.activeOrder',
+    model: 'Order',
+    select: CleanerProOrderSelect,
+    populate: CleanerProOrderPopulate
+}
+
+/**  
+ * This is a mongoose populate object. It is used to populate the client field in the unit model. 
+*/
+const populateUnitClient = {
+    path: 'buildings.$*.units.$*.client',
+    model: 'User',
+    select: {
+        firstName: 1,
+        lastName: 1,
+        phoneNumber: 1
+    }
+}
+
+export const CleanerProAptSelect = {
+    address: 1,
+    aptId: 1,
+    name: 1,
+    email: 1,
+    buildings: 1,
+}
+
+export const CleanerProAptPopulate = [
+    {
+        path: 'address',
+        model: 'Address'
+    },
+    {
+        path: 'buildings',
+        populate: [
+            {
+                path: 'address',
+                model: 'Address'
+            },
+        ]
+    },
+    {
+        path: 'buildings.$*.units.$*.client',
+        model: 'User',
+        select: {
+            firstName: 1,
+            lastName: 1,
+            phoneNumber: 1
+        }
+    }
+]
+
+export const CleanerproAptPopulateToUnit = [
+    {
+        path: 'address',
+        model: 'Address'
+    },
+    {
+       ...populateUnitClient,
+    },
+    {
+        ...populateUnitOrder,
+    }
+    // {
+    //     path: 'buildings',
+    //     populate: [
+    //         {
+    //             path: 'address',
+    //             model: 'Address'
+    //         },
+    //         {
+    //             path: 'units',
+    //             select: {
+    //                 unitId: 1,
+    //                 client: 1,
+    //                 address: 1,
+    //                 activeOrder: 1,
+    //             },
+    //             populate: [
+    //                 {
+    //                     path: 'client',
+    //                     model: 'User',
+    //                     select: CleanerProClientSelect
+    //                 },
+    //                 {
+    //                     path: 'activeOrder',
+    //                     model: 'Order',
+    //                     select: CleanerProOrderSelect,
+    //                     populate: CleanerProOrderPopulate
+    //                 }
+    //             ]
+    //         }
+    //     ]
+    // }
+]

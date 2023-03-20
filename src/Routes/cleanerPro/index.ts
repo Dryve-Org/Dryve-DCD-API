@@ -7,11 +7,13 @@ import bcrypt from 'bcrypt'
 import cleanerR from './cleanerR'
 import CleanerProfile from '../../Models/cleanerProfile.model'
 import orderR from './order'
+import AptR from './aptR'
 
 const cleanerProRouter = express.Router()
 
 cleanerProRouter.use('', cleanerR)
 cleanerProRouter.use('', orderR)
+cleanerProRouter.use('', AptR)
 
 interface CleanerProLoginI {
     username: string
