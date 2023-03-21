@@ -165,7 +165,7 @@ DriverSchema.methods.removeActiveOrder = async function(
 
     return await driver.update({
         $pull: {
-            activeOrders: stringToId(orderId)
+            activeOrders: stringToId(orderId)[0]
         }
     })
 }
