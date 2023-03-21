@@ -167,7 +167,10 @@ AptManSchema.methods.getFullName = function() {
     return `${this.firstName} ${this.lastName}`
 }
 
-AptManSchema.method<AptManDocT>('comparePassword', async function(password: string) {
+AptManSchema.method<AptManDocT>('comparePassword', async function(
+    this: AptManDocT,
+    password: string
+) {
     const aptMan = this
     return await bcrypt.compare(password, aptMan.password)
 })

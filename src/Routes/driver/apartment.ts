@@ -1,9 +1,11 @@
 import express, { Request, Response } from 'express'
+import { err, extractUnitId } from '../../constants/general'
 import { driverAuth, DriverAuthI } from '../../middleware/auth'
-import Apt, { AptI } from '../../Models/aparmtent/apartment.model'
+import Apt, { AptDocT, AptI } from '../../Models/aparmtent/apartment.model'
 import Driver from '../../Models/driver.model'
 import { AptToUnitI } from '../interface'
 import AptR from '../manager/apartment'
+import { driveAptPopulateToUnit, driverAptPopulate, driverAptSelect } from './constants'
 
 const aptR = express.Router()
 
@@ -124,19 +126,13 @@ aptR.get(
 driverAuth,
 async (req: Request<{}, {}, DriverAuthI>, res: Response) => {
     try {
-        const apts = await Apt.find({})
-            .populate('address')
-            .select({
-                ...sensitive,
-                buildings: 0
-            })
+        const apts = await Apt.find({}, driverAptSelect)
+            .populate(driverAptPopulate)
 
         if(!apts) {
             res.status(500).send('unable to get aparments')
             return
         }
-
-        
         
         res.status(200).send(apts)
 
@@ -153,26 +149,60 @@ aptR.get(
 driverAuth,
 async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
     try {
-        const { aptId } = req.params
+        const [ aptId ] = extractUnitId(req.params.aptId)
 
-        const apt = await Apt.findById(aptId)
-            .populate([
-                populateBldAddress,
-                {
-                    path: 'address',
-                    model: 'Address'
-                },
-            ])
-            .select(sensitive)
-            
-            .catch(() => { throw 'invalid apartment id'})
-        if(!apt) {
-            throw 'invalid apartment id'
+        let apt: AptDocT | null = null
+        
+        if(aptId) {
+            apt = await Apt.findOne({ aptId }, driverAptSelect)
+                .populate(driveAptPopulateToUnit)
+        } else {
+            apt = await Apt.findById(req.params.aptId, driverAptSelect)
+                .populate(driveAptPopulateToUnit)
         }
+
+        if(!apt) throw err(400, 'invalid apartment id')
 
         res.status(200).send(apt)
     } catch(e) {
         res.status(400).send(e)
+    }
+})
+
+/*
+    get unit by unitId
+*/
+aptR.get(
+'/apartment/unitId/:unitId',
+driverAuth,
+async (req: Request<{unitId: string}, {}, DriverAuthI>, res: Response) => {
+    try {
+        const [ aptId ] = extractUnitId(req.params.unitId)
+
+        let apt: AptDocT | null = null
+        
+        if(aptId) {
+            apt = await Apt.findOne({ aptId }, driverAptSelect)
+                .populate(driveAptPopulateToUnit)
+        } else {
+            apt = await Apt.findById(req.params.unitId, driverAptSelect)
+                .populate(driveAptPopulateToUnit)
+        }
+
+        if(!apt) throw err(400, 'invalid apartment id')
+
+        const unitData = apt.getUnitId(req.params.unitId)
+        if(!unitData) throw err(400, 'invalid unit id')
+
+        const [,, unit] = unitData
+
+        res.status(200).send(unit)
+    } catch(e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+        } else {
+            res.status(500).send(e)
+        }
     }
 })
 
@@ -184,21 +214,20 @@ aptR.get(
 driverAuth,
 async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
     try {
-        const { aptId, bldId } = req.params
+        const [ aptId ] = extractUnitId(req.params.aptId)
+        const bldId = req.params.bldId
 
-        const apt = await Apt.findById(aptId)
-            .populate([
-                populateBldAddress,
-                populateUnitAddress,
-                populateUnitClient,
-                {
-                    path: 'address',
-                    model: 'Address'
-                },
-            ])
-            .select(sensitive)
+        let apt: AptDocT | null = null
+        
+        if(aptId) {
+            apt = await Apt.findOne({ aptId }, driverAptSelect)
+                .populate(driveAptPopulateToUnit)
+        } else {
+            apt = await Apt.findById(req.params.aptId, driverAptSelect)
+                .populate(driveAptPopulateToUnit)
+        }
 
-        if(!apt) throw 'invalid params'
+        if(!apt) throw err(400, 'invalid apartment id')
 
         const building = apt.buildings.get(bldId)
         if(!building) throw 'invalid params'
@@ -282,5 +311,7 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         res.status(400).send(e)
     }
 })
+
+
 
 export default aptR
