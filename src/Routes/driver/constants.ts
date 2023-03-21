@@ -96,9 +96,16 @@ const populateUnitAddress = {
     model: 'Address'
 }
 
-/**  
- * This is a mongoose populate object. It is used to populate the client field in the unit model. 
+/** 
+ * Populating the activeOrder field in the unit model. 
 */
+const populateUnitOrder = {
+    path: 'buildings.$*.units.$*.activeOrder',
+    model: 'Order',
+    populate: driverOrderPopulate,
+    select: driverOrderSelect
+}
+
 const populateUnitClient = {
     path: 'buildings.$*.units.$*.client',
     model: 'User',
@@ -109,15 +116,28 @@ const populateUnitClient = {
     }
 }
 
-
-/** 
- * Populating the activeOrder field in the unit model. 
-*/
-const populateUnitOrder = [
+export const driveAptPopulateToUnit = [
     {
-        path: 'buildings.$*.units.$*.activeOrder',
-        model: 'Order',
-        populate: driverOrderPopulate,
-        select: driverOrderSelect
+        path: 'address',
+        model: 'Address'
     },
+    populateBldAddress,
+    populateUnitAddress,
+    populateUnitOrder,
+    populateUnitClient
 ]
+
+export const driverAptPopulate = [
+    {
+        path: 'address',
+        model: 'Address'
+    },
+    populateBldAddress
+]
+
+export const driverAptSelect = {
+    unitIndex: 0,
+    paidFor: 0,
+    createdBy: 0
+}
+    
