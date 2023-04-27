@@ -13,10 +13,6 @@ export type ClnDocT = mongoose.Document<unknown, any, CleanerI> & CleanerI & {
 interface MachineI {
     type: 'dryer' | 'washer'
     attachedOrder: Types.ObjectId | null
-    /**
-     * This is from the attached order
-     */
-    attachedUnitId: string | null
     lastUpdated: Number,
     size: 'small' | 'medium' | 'large'
     status: 'Available' | 'In Use' | 'Out of Order'
@@ -224,10 +220,6 @@ const CleanerSchema = new Schema<CleanerI, ClnModelT, ClnMethodsI>({
             ref: 'Order',
             default: null
         },
-        attachedUnitId: {
-            type: String,
-            default: null
-        },
         lastUpdated: {
             type: Number,
             default: now()
@@ -397,7 +389,6 @@ CleanerSchema.method('addMachines', async function(
                 machineId: `${machineSuffix}-${machineIndex.toString().padStart(2, '0')}`,
                 lastUpdated,
                 attachedOrder: null,
-                attachedUnitId: null,
                 status: 'Available'
             })
     
@@ -475,16 +466,10 @@ CleanerSchema.method('attachOrderToMachine', async function(
         if(typeof orderId === 'string') {
             orderId = new Types.ObjectId(orderId)
         }
-
-        const order = await Order.findById(orderId)
-        if(!order) {
-            throw err(500, 'order id not found when it shoud have been')
-        }
         
         await cln.update({
             $set: {
                 [`machines.${machineIndex}.attachedOrder`]: orderId,
-                [`machines.${machineIndex}.attachedUnitId`]: order.unitId,
                 [`machines.${machineIndex}.status`]: 'In Use',
                 [`machines.${machineIndex}.lastUpdated`]: now()
             }
@@ -527,7 +512,6 @@ CleanerSchema.method('detachOrderFromMachine', async function(
         await cln.update({
             $set: {
                 [`machines.${machineIndex}.attachedOrder`]: null,
-                [`machines.${machineIndex}.attachedUnitId`]: null,
                 [`machines.${machineIndex}.status`]: 'Available',
                 [`machines.${machineIndex}.lastUpdated`]: now()
             }
