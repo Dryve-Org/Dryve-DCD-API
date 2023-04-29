@@ -162,6 +162,9 @@ async (req: Request<{ clnId: string }, {}, DriverAuthI>, res: Response) => {
         const cleaner = await Cleaner.findById(clnId)
             .select(driverCleanerSelect)
             .populate(driverCleanerPopulate)
+            .catch(() => { 
+                throw 'invalid cleaner Id'
+            })
         
         if(!cleaner) throw 'invalid cleaner Id'
 
