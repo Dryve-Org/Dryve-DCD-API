@@ -178,7 +178,10 @@ UserSchema.methods.addUnitId = async function(
 ) {
     try {
         const user = this
-    
+        
+        /**
+         * if client is already attached to unitId
+         */
         if(user.attachedUnitIds.includes(unitId)) return user
     
         const [ aptId ] = extractUnitId(unitId)

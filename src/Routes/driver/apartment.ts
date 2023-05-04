@@ -170,6 +170,33 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
 })
 
 /*
+    Get Queued Orders
+*/
+aptR.get(
+'/apartment/:aptId/order_queue',
+driverAuth,
+async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
+    try {
+        const { aptId } = req.params
+
+        const apt = await Apt.findById(aptId, driverAptSelect)
+            .populate(driveAptPopulateToUnit)
+        if(!apt) throw err(400, 'unable to find apartment')
+
+        const units = apt.listUnits()
+
+        units
+            .filter(unit => unit.queued !== null)
+            //@ts-ignore
+            .sort((a, b) => b.queued - a.queued)
+
+        res.status(200).send(units)
+    } catch (e) {
+
+    }
+})
+
+/*
     get unit by unitId
 */
 aptR.get(
@@ -278,6 +305,8 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
     }
 })
 
+
+
 /*
     Get unit
 */
@@ -311,6 +340,8 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         res.status(400).send(e)
     }
 })
+
+
 
 
 
