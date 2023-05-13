@@ -491,7 +491,6 @@ AptSchema.method('addUnits', async function(
         message: 'unable to get building address',
         status: 500
     }
-
     for(let unitId of unitIds) {
         const unitAddress = {
             ...buildingAddress,

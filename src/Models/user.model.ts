@@ -5,7 +5,9 @@ import { isOfAge, isUnixDate, now } from "../constants/time"
 import jwt from 'jsonwebtoken'
 import { MongooseFindByReference } from "mongoose-find-by-reference"
 import Apt, { UnitI } from "./aparmtent/apartment.model"
-import { err, extractUnitId } from "../constants/general"
+import { err, extractUnitId, idToString } from "../constants/general"
+import Master, { MasterI } from "./master"
+import _ from "lodash"
 
 export type UserDocT = mongoose.Document<unknown, any, UserI> & UserI & {
     _id: mongoose.Types.ObjectId
@@ -31,6 +33,28 @@ interface UserIMethods {
      * @returns { Promise<UserI> } the refresh token
     */
     removeUnitId(unitId: string): Promise<UserI>
+
+    /**
+     *  add preference to client
+     * 
+     * @param { string[] } clientPreferencesIds
+     * @returns { Promise<UserI> }
+    */
+   addPreferences(
+        this: UserDocT,
+        clientPreferencesIds: string[]
+    ): Promise<UserDocT>
+
+    /**
+     *  remove preference to client
+     * 
+     * @param { string[] } clientPreferencesIds
+     * @returns { Promise<UserI> }
+    */
+    removePreference(
+        this: UserDocT,
+        clientPreferencesId: string
+    ): Promise<UserDocT>
 }
 
 export interface UserI extends UserIMethods {
@@ -54,11 +78,15 @@ export interface UserI extends UserIMethods {
     preferredCardId: string
     emailVerified: boolean
     attachedUnitIds: string[]
+    preferences: string[]
 }
 
 type UserModelT = Model<UserI, {}, UserIMethods>
 
 const UserSchema = new Schema<UserI, UserModelT, UserIMethods>({
+    preferences: [{
+        type: String
+    }],
     firstName: {
         type: String,
         require: true,
@@ -286,6 +314,78 @@ UserSchema.pre('save', async function (next) { //must use ES5 function to use th
     next() // without next the function will hang and never save
 })
 
+UserSchema.methods.addPreferences = async function(
+    preferenceIds
+) {
+    const user = this
+
+    const aptIds = user.attachedUnitIds.map(uid => extractUnitId(uid)[0])
+
+    const apts = await Apt.find({ aptId: aptIds })
+        .catch(() => {
+            throw err(500, 'could not get apartments')
+        })
+    if(apts.length === 0) {
+        throw err(200, 'not attached to an apartment')
+    }
+
+    const uniqueMasters = _.uniqBy(apts, 'master')
+
+    const masters = await Master.find({ 
+            _id: {$in: uniqueMasters.map(apt => apt.master) }
+        },
+        { clientPreferences: 1 }
+    )
+    
+    const allPreferences: MasterI['clientPreferences'] = []
+    const allPreferencesIds: string[] = []
+
+    masters.forEach(master => {
+        allPreferences.push(...master.clientPreferences)
+
+        master.clientPreferences.forEach(cp => {
+            //@ts-ignore
+            allPreferencesIds.push(cp._id)
+        })
+    })
+
+    //checking if ids provided exists
+    if(
+        _.intersection(idToString(allPreferencesIds), preferenceIds).length !== preferenceIds.length 
+    ) {
+        throw err(400, 'bad data')
+    }
+
+    const newPreferences = preferenceIds.filter(pref => {
+        if(!user.preferences.includes(pref)) {
+            return true
+        }
+    })
+
+    if(newPreferences.length === 0) {
+        return user
+    }
+
+    user.preferences.push(...newPreferences)
+
+    await user.save()
+
+    return user
+}
+
+UserSchema.methods.removePreference = async function(
+    preferenceId
+) {
+    let user = this
+    
+    await user.update({
+        $pull: {
+            preferences: preferenceId
+        }
+    })
+
+    return user
+}
 const User = model("User", UserSchema)
 
 export default User
