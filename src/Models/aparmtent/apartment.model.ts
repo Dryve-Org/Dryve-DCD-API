@@ -40,6 +40,11 @@ interface AptIMethods {
     listUnits(this: AptDocT): UnitI[]
 
     /**
+     * List queued units
+     */
+    queuedUnits(this: AptDocT): UnitI[]
+
+    /**
      * Adding a building to Apartment
      * @param {string} UnitId - string - the unit want to queue
      * @return {Promise<AptDocT>} - New Apt document
@@ -315,7 +320,8 @@ const AptSchema = new Schema<AptI, AptModelT, AptIMethods>(
                         },
                         queued: {
                             type: Number,
-                            nullable: true
+                            nullable: true,
+                            default: null
                         },
                         default: {}
                     }
@@ -760,6 +766,10 @@ AptSchema.methods.queueUnit = async function(
     if(!unitData) throw err(400, 'unable to find unitId')
     const [ buildingId, unitValue, unit ] = unitData
 
+    if(unit.activeOrder) {
+        throw err(409, 'Order already active')
+    }
+
     if(unit.queued) return apt
 
     unit.queued = now()
@@ -798,6 +808,19 @@ AptSchema.methods.listUnits = function() {
 
     return units
 }
+
+AptSchema.methods.queuedUnits = function() {
+    const apt = this
+
+    const units = apt
+        .listUnits()
+        .filter(unit => unit.queued !== null)
+        //@ts-ignore
+        .sort((a, b) => b.queued - a.queued)
+
+    return units
+}
+
 
 
 const Apt = model<AptI, AptModelT>('Apartment', AptSchema)

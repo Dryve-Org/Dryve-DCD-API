@@ -183,12 +183,7 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
             .populate(driveAptPopulateToUnit)
         if(!apt) throw err(400, 'unable to find apartment')
 
-        const units = apt.listUnits()
-
-        units
-            .filter(unit => unit.queued !== null)
-            //@ts-ignore
-            .sort((a, b) => b.queued - a.queued)
+        const units = apt.queuedUnits()
 
         res.status(200).send(units)
     } catch (e) {
