@@ -1,4 +1,5 @@
-import { MasterDocT } from '.'
+import { Types } from 'mongoose'
+import { ClientPreferenceI, MasterDocT, MasterI } from '.'
 import { err } from '../../constants/general'
 
 /**
@@ -15,5 +16,52 @@ export async function incrementApartmentIdIndex (this: MasterDocT) {
         await master.save()
     } catch {
         throw err(500, 'could not increment apartment id index')
+    }
+}
+
+export const addClientPreference = async function(
+    this: MasterDocT,
+    title: string,
+    description: string,
+    type: ClientPreferenceI['type']
+) {
+    try {
+        const master = this
+        
+        await master.update({
+            $push: {
+                clientPreferences: {
+                    title,
+                    description,
+                    type
+                }
+            }
+        })
+    
+        return master
+    } catch(e) {
+        console.log(e)
+        throw err(400, 'could not add client preference')
+    }
+}
+
+export const removeClientPreference = async function(
+    this: MasterDocT,
+    id: string | Types.ObjectId
+) {
+    try {
+        const master = this
+    
+        await master.update({
+            $pull: {
+                clientPreferences: {
+                    _id: id
+                }
+            }
+        })
+    
+        return master
+    } catch(e) {
+        throw err(400, 'could not remove client preference')
     }
 }

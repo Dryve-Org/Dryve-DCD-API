@@ -89,3 +89,19 @@ export async function generateId(
     return id
 }
 
+export async function updateMaster(
+    this: AptDocT,
+    masterId: string
+) {
+    const apt = this
+
+    const master = await Master.findById(masterId)
+    if(!master) throw err(400, 'master does not exist')
+
+    apt.master = master._id
+
+    await apt.save()
+
+    return apt
+}
+

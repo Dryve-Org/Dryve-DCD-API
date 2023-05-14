@@ -8,7 +8,8 @@ import v from 'validator'
 import { idToString } from '../../constants/general'
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
 import { sendEmailVerify } from '../../constants/email/setup'
-import { activateUnit, generateId, getBuilding } from './methods'
+import { activateUnit, generateId, getBuilding, updateMaster } from './methods'
+import Master from '../master'
 
 export type AptDocT = mongoose.Document<unknown, any, AptI> & AptI & {
     _id: mongoose.Types.ObjectId
@@ -197,6 +198,15 @@ interface AptIMethods {
         buildingId: string,
         unitId: string
     ): Promise<string>
+
+    /**
+     * Sets which master the apartment is attached to
+     * 
+     * @param MasterId 
+    */
+    updateMaster(
+        MasterId: string
+    ): Promise<AptDocT>
     
     /**
      * Get unit by id
@@ -213,6 +223,7 @@ interface AptIMethods {
 
 export interface AptI extends AptIMethods{
     name: string,
+    master: Types.ObjectId
     address: Types.ObjectId
     email: string
     buildings: Types.Map<AptBuildingI>
@@ -244,6 +255,10 @@ const AptSchema = new Schema<AptI, AptModelT, AptIMethods>(
         name: {
             type: String,
             required: true
+        },
+        master: {
+            type: Schema.Types.ObjectId,
+            ref: 'Master'
         },
         address: {
             type: Schema.Types.ObjectId,
@@ -476,7 +491,6 @@ AptSchema.method('addUnits', async function(
         message: 'unable to get building address',
         status: 500
     }
-
     for(let unitId of unitIds) {
         const unitAddress = {
             ...buildingAddress,
@@ -708,6 +722,8 @@ AptSchema.methods.getUnitId = function(
 
     return null
 }
+
+AptSchema.method<AptDocT>('updateMaster', updateMaster)
 
 
 const Apt = model<AptI, AptModelT>('Apartment', AptSchema)
