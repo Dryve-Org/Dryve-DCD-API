@@ -8,9 +8,13 @@ import bcrypt from "bcrypt"
 import { auth, authBodyI, UserDocT } from '../../middleware/auth'
 import validator from 'validator'
 import _, { pick } from 'lodash'
+<<<<<<< HEAD
 import Order from '../../Models/Order.model'
 import { err, extractUnitId } from '../../constants/general'
 import Apt from '../../Models/aparmtent/apartment.model'
+=======
+import Order, { OrderI, OrderstatusT } from '../../Models/Order.model'
+>>>>>>> 9b091b6fdda8ae348ca3e1c927371468c6bf9d41
 
 const userRouter = express.Router()
 
@@ -416,36 +420,36 @@ interface preferredCardI extends authBodyI {
 }
 
 /* Updating the user's preferred card. */
-userRouter.put(
-'/preferred_card',
-auth,
-async (req: Request<{}, {}, preferredCardI>, res: Response) => {
-    try {
-        const { 
-            user,
-            cardId
-        } = req.body
+// userRouter.put(
+// '/preferred_card',
+// auth,
+// async (req: Request<{}, {}, preferredCardI>, res: Response) => {
+//     try {
+//         const { 
+//             user,
+//             cardId
+//         } = req.body
 
-        const card = await reteiveCard(cardId)
-        if(!card) {
-            throw 'invalid card'
-        }
+//         const card = await reteiveCard(cardId)
+//         if(!card) {
+//             throw 'invalid card'
+//         }
 
-        user.preferredCardId = cardId
+//         user.preferredCardId = cardId
 
-        user.save()
-            .then(() => {
-                res.status(200).send('card updated')
-            })
-            .catch(() => {
-                res.status(500).send(
-                    'unable to update card'
-                )
-            })
-    } catch(e) {
-        res.status(400).send(e)
-    }
-})
+//         user.save()
+//             .then(() => {
+//                 res.status(200).send('card updated')
+//             })
+//             .catch(() => {
+//                 res.status(500).send(
+//                     'unable to update card'
+//                 )
+//             })
+//     } catch(e) {
+//         res.status(400).send(e)
+//     }
+// })
 
 interface updateCardResI extends authBodyI {
     cardId: string
@@ -455,25 +459,25 @@ interface updateCardResI extends authBodyI {
     Remove card from stripe and user.
     passed through body for privacy
 */
-userRouter.delete('/card', auth, async (req: Request<{}, {}, updateCardResI>, res: Response) => {
-    try {
-        const { user, _id, cardId } = req.body
-        //remove card from stripe
-        await removeCard(_id, cardId)
+// userRouter.delete('/card', auth, async (req: Request<{}, {}, updateCardResI>, res: Response) => {
+//     try {
+//         const { user, _id, cardId } = req.body
+//         //remove card from stripe
+//         await removeCard(_id, cardId)
 
-        //remove card id from user cards
-        _.remove(user.cards, (id) => {
-            return id === cardId
-        })
+//         //remove card id from user cards
+//         _.remove(user.cards, (id) => {
+//             return id === cardId
+//         })
 
-        //store update user
-        await user.save()
+//         //store update user
+//         await user.save()
 
-        res.status(200).send("card removed successfully")
-    } catch(e: any) {
-        res.status(400).send(e)
-    }
-})
+//         res.status(200).send("card removed successfully")
+//     } catch(e: any) {
+//         res.status(400).send(e)
+//     }
+// })
 
 /*
     Client Track Driver
@@ -485,9 +489,9 @@ async (req: Request<{ orderId: string }, {}, authBodyI>, res: Response) => {
     try {
         const { orderId } = req.params
         const { user } = req.body
-        const validStatuses = [
+        const validStatuses: OrderstatusT[] = [
+            'Picked Up From Cleaner',
             'Pickup Driver On the Way',
-            'Pickup Driver approaching',
             'Clothes to Home'
         ]
 
@@ -517,6 +521,7 @@ async (req: Request<{ orderId: string }, {}, authBodyI>, res: Response) => {
     }
 })
 
+<<<<<<< HEAD
 userRouter.post(
 '/queue/:unitId',
 auth,
@@ -576,6 +581,11 @@ async (req: Request<{ unitId: string }, {}, authBodyI>, res: Response) => {
         }
     }
 })
+=======
+/*
+    
+*/
+>>>>>>> 9b091b6fdda8ae348ca3e1c927371468c6bf9d41
 
 
 export default userRouter
