@@ -67,7 +67,7 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
             .get(unitId)
 
         //client and isActive must be true to continue
-        if(!unit?.client || !unit?.isActive) throw `
+        if(!unit?.client || !unit?.isActive || !unit || unit.queued === null) throw `
             unit not capable of creating an order
         `
 
@@ -118,6 +118,7 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         await order.save()
         driver.save()
         client.save()
+        apt.dequeueUnit(unit.unitId)
         
         await apt.addOrderToUnit(bldId, unitId, order.id)
             .catch(() => {

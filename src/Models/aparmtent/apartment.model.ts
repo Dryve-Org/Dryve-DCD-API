@@ -8,8 +8,13 @@ import v from 'validator'
 import { idToString } from '../../constants/general'
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
 import { sendEmailVerify } from '../../constants/email/setup'
+<<<<<<< HEAD
+import { activateUnit, generateId, getBuilding } from './methods'
+import { now } from '../../constants/time'
+=======
 import { activateUnit, generateId, getBuilding, updateMaster } from './methods'
 import Master from '../master'
+>>>>>>> 9b091b6fdda8ae348ca3e1c927371468c6bf9d41
 
 export type AptDocT = mongoose.Document<unknown, any, AptI> & AptI & {
     _id: mongoose.Types.ObjectId
@@ -20,7 +25,11 @@ export interface UnitI {
     isActive?: boolean
     address: Types.ObjectId
     activeOrder?: Types.ObjectId
-    unitId?: string
+    unitId: string
+    /**
+     * contains date in unix format of when queued. Null if not in queue
+    */
+    queued: number | null
 }
 
 export interface AptBuildingI  {
@@ -30,6 +39,36 @@ export interface AptBuildingI  {
 }
 
 interface AptIMethods {
+    /**
+     * List all units
+    */
+    listUnits(this: AptDocT): UnitI[]
+
+    /**
+     * List queued units
+     */
+    queuedUnits(this: AptDocT): UnitI[]
+
+    /**
+     * Adding a building to Apartment
+     * @param {string} UnitId - string - the unit want to queue
+     * @return {Promise<AptDocT>} - New Apt document
+    */
+    queueUnit(
+        this: AptDocT,
+        unitId: string
+    ): Promise<AptDocT>
+    
+    /**
+     * Adding a building to Apartment
+     * @param {string} UnitId - string - the unit want to unqueue
+     * @return {Promise<AptDocT>} - New Apt document
+    */
+    dequeueUnit(
+        this: AptDocT,
+        unitId: string
+    ): Promise<AptDocT>
+
     /**
      * get building
      * @param {string} buildingId - string - building identifier
@@ -56,7 +95,7 @@ interface AptIMethods {
      * @param {string} unit - new unit
      * @return {Promise<AptDocT>} - New Apt document
     */
-    addUnit(
+    addUnit<AptDocT>(
         buildingId: string,
         unitId: string,
     ): Promise<AptDocT>,
@@ -239,7 +278,7 @@ export interface AptI extends AptIMethods{
     createdBy: {
         userType: 'manager'
         userTypeId: Types.ObjectId
-    },
+    }
     paidFor: boolean
     aptId: string
     unitIndex: number
@@ -296,7 +335,12 @@ const AptSchema = new Schema<AptI, AptModelT, AptIMethods>(
                         },
                         unitId: {
                             type: String,
-                            required: true
+                            required: true,
+                        },
+                        queued: {
+                            type: Number,
+                            nullable: true,
+                            default: null
                         },
                         default: {}
                     }
@@ -359,13 +403,16 @@ AptSchema.pre('save', async function (this: AptDocT, next) { //must use ES5 func
             Never let apt save without apt.aptId or apt.unitIndex unless it's a new document
         */
         const apt =  this
-        if(!apt.aptId) apt.aptId = await apt.generateId()
-        if(!apt.unitIndex) apt.unitIndex = 1
+
+        if(apt.isNew) {
+            apt.aptId = await apt.generateId()
+            apt.unitIndex = 1
+        }
 
         //loop through buildings and units and generate ids if they don't have one
         for(const building of apt.buildings.entries()) {
             for(const unit of building[1].units.entries()) {
-                if(!unit[1].unitId) {
+                if(unit[1].unitId === 'N/A') {
                     unit[1].unitId = `${apt.aptId}-${apt.unitIndex.toString().padStart(3, '0')}`
 
                     apt.buildings.get(building[0])?.units.set(unit[0], unit[1])
@@ -375,7 +422,6 @@ AptSchema.pre('save', async function (this: AptDocT, next) { //must use ES5 func
             }
         }
     } catch(e) {
-        console.log(e)
         throw 'Apartment save failed'
     }
 
@@ -409,8 +455,9 @@ AptSchema.method('addBuilding', async function(
             calcedUnits.set(unit, {
                 address: unitAddy._id,
                 client: undefined,
-                isActive: false
-            })
+                isActive: false,
+                unitId: 'N/A'
+            } as UnitI)
         }
     }
 
@@ -425,11 +472,12 @@ AptSchema.method('addBuilding', async function(
     return apt
 })
 
-AptSchema.method('addUnit', async function(
+AptSchema.method<AptDocT>('addUnit', async function(
+    this: AptDocT,
     buildingId: string,
     unitId: string,
 ) {
-    const apt = this as AptDocT
+    const apt = this
 
     const building = apt.buildings.get(buildingId)
     if(!building) throw {
@@ -449,13 +497,15 @@ AptSchema.method('addUnit', async function(
     }
 
     const addy = await addAddress({
-        ...buildingAddress,
+        ...buildingAddress, 
         street_address_line_2: `unit ${ unitId }`
     })
 
     apt.buildings.get(buildingId)?.units.set(unitId, {
         address: addy._id,
-        isActive: false
+        isActive: false,
+        queued: null,
+        unitId: 'N/A'
     })
 
     await apt.save()
@@ -508,7 +558,9 @@ AptSchema.method('addUnits', async function(
         apt.buildings.get(buildingId)?.units.set(unitId, {
             address: unitAddy._id,
             isActive: false,
-            client: undefined
+            client: undefined,
+            queued: null,
+            unitId
         })
     }
 
@@ -721,6 +773,70 @@ AptSchema.methods.getUnitId = function(
     }
 
     return null
+}
+
+AptSchema.methods.queueUnit = async function(
+    unitId
+) {
+    const apt = this
+
+    const unitData = apt.getUnitId(unitId)
+    if(!unitData) throw err(400, 'unable to find unitId')
+    const [ buildingId, unitValue, unit ] = unitData
+
+    if(unit.activeOrder) {
+        throw err(409, 'Order already active')
+    }
+
+    if(unit.queued) return apt
+
+    unit.queued = now()
+    apt.buildings.get(buildingId)?.units.set(unitValue, unit)
+
+    await apt.save()
+
+    return apt
+}
+
+AptSchema.methods.dequeueUnit = async function(
+    unitId
+) {
+    const apt = this
+
+    const unitData = apt.getUnitId(unitId)
+    if(!unitData) throw err(400, 'unable to find unitId')
+    const [ buildingId, unitValue, unit ] = unitData
+
+    unit.queued = null
+    apt.buildings.get(buildingId)?.units.set(unitValue, unit)
+
+    await apt.save()
+
+    return apt
+}
+
+AptSchema.methods.listUnits = function() {
+    const apt = this
+
+    const units: UnitI[] = []
+
+    for (let bld of apt.buildings) {
+        for (let unit of bld[1].units) units.push(unit[1])
+    }
+
+    return units
+}
+
+AptSchema.methods.queuedUnits = function() {
+    const apt = this
+
+    const units = apt
+        .listUnits()
+        .filter(unit => unit.queued !== null)
+        //@ts-ignore
+        .sort((a, b) => b.queued - a.queued)
+
+    return units
 }
 
 AptSchema.method<AptDocT>('updateMaster', updateMaster)

@@ -6,11 +6,15 @@ import User, { UserI } from '../../Models/user.model'
 import { isOfAge, isUnixDate, now } from '../../constants/time'
 import bcrypt from "bcrypt"
 import { auth, authBodyI, UserDocT } from '../../middleware/auth'
-import { geoHandleAddress } from '../../constants/location'
-import Stripe from 'stripe'
 import validator from 'validator'
 import _, { pick } from 'lodash'
+<<<<<<< HEAD
+import Order from '../../Models/Order.model'
+import { err, extractUnitId } from '../../constants/general'
+import Apt from '../../Models/aparmtent/apartment.model'
+=======
 import Order, { OrderI, OrderstatusT } from '../../Models/Order.model'
+>>>>>>> 9b091b6fdda8ae348ca3e1c927371468c6bf9d41
 
 const userRouter = express.Router()
 
@@ -136,10 +140,6 @@ async (req: Request<{ userId: string }, {}, {}>, res: Response) => {
         res.status(400).send(e)
     }
 })
-
-/*
-    User retreiving client information
-*/
 
 
 /* A route that is used to retrieve a user's information. */
@@ -521,9 +521,71 @@ async (req: Request<{ orderId: string }, {}, authBodyI>, res: Response) => {
     }
 })
 
+<<<<<<< HEAD
+userRouter.post(
+'/queue/:unitId',
+auth,
+async (req: Request<{ unitId: string }, {}, authBodyI>, res: Response) => {
+    try {
+        const { unitId } = req.params
+        const { user } = req.body
+
+        if(!user.attachedUnitIds.includes(unitId)) throw err(400, 'invalid unit Id')
+
+        const [ aptId ] = extractUnitId(unitId)
+
+        const apt = await Apt.findOne({ aptId }, {buildings: 1})
+        if(!apt) throw err(400, 'invalid unit Id')
+
+        await apt.queueUnit(unitId)
+        const unitData = apt.getUnitId(unitId)
+        if(!unitData) throw err(500, 'data should have been retreived')
+        const [ ,, unit ] = unitData
+
+        res.status(200).send(unit)
+    } catch(e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+        } else {
+            res.status(500).send(e)
+        }
+    }
+})
+
+userRouter.post(
+'/unqueue/:unitId',
+auth,
+async (req: Request<{ unitId: string }, {}, authBodyI>, res: Response) => {
+    try {
+        const { unitId } = req.params
+        const { user } = req.body
+
+        if(!user.attachedUnitIds.includes(unitId)) throw err(400, 'invalid unit Id')
+
+        const [ aptId ] = extractUnitId(unitId)
+
+        const apt = await Apt.findOne({ aptId }, {buildings: 1})
+        if(!apt) throw err(400, 'invalid unit Id')
+
+        await apt.dequeueUnit(unitId)
+        const unitData = apt.getUnitId(unitId)
+        if(!unitData) throw err(500, 'data should have been retreived')
+        const [ ,, unit ] = unitData
+
+        res.status(200).send(unit)
+    } catch(e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+        } else {
+            res.status(500).send(e)
+        }
+    }
+})
+=======
 /*
     
 */
+>>>>>>> 9b091b6fdda8ae348ca3e1c927371468c6bf9d41
 
 
 export default userRouter

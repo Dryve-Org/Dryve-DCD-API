@@ -240,7 +240,7 @@ async (req: Request<{
         if(!apt.buildings.get(bld)) throw 'invalid params'
         apt.buildings.toObject()
 
-        apt.addUnit(bld, unit)
+        await apt.addUnit(bld, unit)
             .then(() => {
                 res.status(200).send(apt)
             })
