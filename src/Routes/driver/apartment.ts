@@ -186,8 +186,12 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         const units = apt.queuedUnits()
 
         res.status(200).send(units)
-    } catch (e) {
-
+    } catch (e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+        } else {
+            res.status(500).send(e)
+        }
     }
 })
 

@@ -8,13 +8,9 @@ import bcrypt from "bcrypt"
 import { auth, authBodyI, UserDocT } from '../../middleware/auth'
 import validator from 'validator'
 import _, { pick } from 'lodash'
-<<<<<<< HEAD
-import Order from '../../Models/Order.model'
+import Order, { OrderstatusT } from '../../Models/Order.model'
 import { err, extractUnitId } from '../../constants/general'
 import Apt from '../../Models/aparmtent/apartment.model'
-=======
-import Order, { OrderI, OrderstatusT } from '../../Models/Order.model'
->>>>>>> 9b091b6fdda8ae348ca3e1c927371468c6bf9d41
 
 const userRouter = express.Router()
 
@@ -521,7 +517,6 @@ async (req: Request<{ orderId: string }, {}, authBodyI>, res: Response) => {
     }
 })
 
-<<<<<<< HEAD
 userRouter.post(
 '/queue/:unitId',
 auth,
@@ -581,11 +576,6 @@ async (req: Request<{ unitId: string }, {}, authBodyI>, res: Response) => {
         }
     }
 })
-=======
-/*
-    
-*/
->>>>>>> 9b091b6fdda8ae348ca3e1c927371468c6bf9d41
 
 
 export default userRouter
