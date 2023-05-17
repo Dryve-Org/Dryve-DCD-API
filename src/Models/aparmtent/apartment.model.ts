@@ -8,13 +8,8 @@ import v from 'validator'
 import { idToString } from '../../constants/general'
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
 import { sendEmailVerify } from '../../constants/email/setup'
-<<<<<<< HEAD
-import { activateUnit, generateId, getBuilding } from './methods'
-import { now } from '../../constants/time'
-=======
 import { activateUnit, generateId, getBuilding, updateMaster } from './methods'
-import Master from '../master'
->>>>>>> 9b091b6fdda8ae348ca3e1c927371468c6bf9d41
+import { now } from '../../constants/time'
 
 export type AptDocT = mongoose.Document<unknown, any, AptI> & AptI & {
     _id: mongoose.Types.ObjectId

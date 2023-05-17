@@ -133,6 +133,7 @@ interface ClnMethodsI {
 }
 
 export interface CleanerI extends ClnMethodsI {
+    master: Types.ObjectId
     name: string
     email: string
     phoneNumber: string
@@ -155,6 +156,11 @@ export interface CleanerI extends ClnMethodsI {
 type ClnModelT = Model<CleanerI, {}, ClnMethodsI>
 
 const CleanerSchema = new Schema<CleanerI, ClnModelT, ClnMethodsI>({
+    master: {
+        type: Schema.Types.ObjectId,
+        ref: 'Master',
+        required: true
+    },
     name: {
         type: String,
         required: true

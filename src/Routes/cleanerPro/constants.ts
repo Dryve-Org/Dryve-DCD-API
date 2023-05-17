@@ -109,7 +109,8 @@ const populateUnitClient = {
     select: {
         firstName: 1,
         lastName: 1,
-        phoneNumber: 1
+        phoneNumber: 1,
+        preferences: 1,
     }
 }
 

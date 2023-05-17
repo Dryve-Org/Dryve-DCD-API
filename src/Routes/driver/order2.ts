@@ -13,6 +13,8 @@ import Order from '../../Models/Order.model'
 import User from '../../Models/user.model'
 import { AptToUnitI } from '../interface'
 import { driverCleanerPopulate, driverCleanerSelect, driverOrderPopulate, driverOrderSelect } from './constants'
+import Master from '../../Models/master'
+import { idToString } from '../../constants/general'
 
 const orderR = express.Router()                                                                                                                    
 
@@ -71,6 +73,9 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
             unit not capable of creating an order
         `
 
+        const master = await Master.findById(apt.master)
+        if(!master) throw 'master could not be retreived'
+
         const client = await User.findById(unit.client)
         if(!client) {
             res.status(500).send('client could not be retreived')
@@ -93,6 +98,13 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
 
         //need to get the region's cleaner
         const order = await Order.create({
+            master: apt.master,
+            clientPreferences: master.clientPreferences.filter(preference => {
+                //@ts-ignore
+                if(client.preferences.includes(idToString(preference._id))) {
+                    return true
+                }
+            }),
             client: client._id,
             origin: unit.address,
             dropOffAddress: unit.address,
