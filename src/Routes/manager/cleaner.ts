@@ -8,6 +8,7 @@ import Service, { ServiceI } from '../../Models/services.model'
 import { err, idToString } from '../../constants/general'
 import { StringDecoder } from 'string_decoder'
 import { String } from 'lodash'
+import Master from '../../Models/master'
 
 
 const cleanerR = express.Router()
@@ -16,6 +17,7 @@ interface AddCleanerI extends ManagerAuthI {
     name: string
     address: AddressI
     phoneNumber: string
+    master: string
 }
 
 /**
@@ -29,12 +31,16 @@ async (req: Request<{}, {}, AddCleanerI>, res: Response) => {
         const {
             address,
             name,
-            phoneNumber
+            phoneNumber,
+            master
         } = req.body
     
         if(!v.isMobilePhone(phoneNumber)) {
             throw 'invalid phone number'
         }
+
+        const masterFound = await Master.findById(master, { name: 1 })
+        if(!masterFound) throw 'invalid master id'
     
         const addy = await addAddress(address)
             .catch(() => {

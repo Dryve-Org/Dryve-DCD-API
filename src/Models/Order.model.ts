@@ -9,6 +9,7 @@ import { UserI } from './user.model'
 import Cleaner, { CleanerI } from './cleaner.model'
 import e from 'express'
 import { AptI } from './aparmtent/apartment.model'
+import { MasterI } from './master'
 
 export type OrderDocT = mongoose.Document<unknown, any, OrderI> & OrderI & {
     _id: mongoose.Types.ObjectId
@@ -49,6 +50,8 @@ export const orderStatuses: OrderstatusT[] = [
 ]
 
 export interface OrderI extends OrderMethodsI {
+    master: Types.ObjectId
+    clientPreferences: MasterI['clientPreferences'] // client preference
     client: Types.ObjectId // client
     origin?: Types.ObjectId | string// client pickup and dropoff
     dropOffAddress?: Types.ObjectId
@@ -163,6 +166,24 @@ interface OrderMethodsI {
 export type OrderModelT = Model<OrderI, {}, OrderMethodsI>
 
 const OrderSchema = new Schema<OrderI, OrderModelT, OrderMethodsI>({
+    master: {
+        type: Schema.Types.ObjectId,
+        ref: 'Master'
+    },
+    clientPreferences: [{
+        title: String,
+        description: String,
+        type: {
+            type: String,
+            enum: [
+                'detergent',
+                'bleach',
+                'fabric softener',
+                'dryer sheets',
+                'other'
+            ]
+        }
+    }],
     client: {
         type: Schema.Types.ObjectId,
         ref: 'User'
