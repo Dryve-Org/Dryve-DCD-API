@@ -9,6 +9,7 @@ import { cleanerProAuth, CleanerProAuthI } from '../../middleware/auth'
 import Cleaner from '../../Models/cleaner.model'
 import Order, { OrderstatusT } from '../../Models/Order.model'
 import { CleanerProOrderPopulate, CleanerProOrderSelect } from './constants'
+import Master from '../../Models/master'
 
 const orderR = express.Router()
 
