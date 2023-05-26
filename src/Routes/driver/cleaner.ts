@@ -35,6 +35,32 @@ async (req: Request<{ clnId: string }, {}, DriverAuthI>, res: Response) => {
     }
 })
 
+interface GetCleaners extends DriverAuthI {
+    masterId: string
+}
+
+cleanerR.get(
+'/cleaners',
+driverAuth,
+async (req: Request<{}, {}, GetCleaners>, res: Response) => {
+    try {
+        const { 
+            masterId,
+            driver 
+        } = req.body
+
+        const cleaners = await driver.cleaners(masterId ? masterId : undefined)
+
+        res.status(200).send(cleaners)
+    } catch(e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+        } else {
+            res.status(500).send('unable to get cleaners')
+        }
+    }
+})
+
 cleanerR.post(
 '/nearby_cleaners',
 driverAuth,

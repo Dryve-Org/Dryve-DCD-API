@@ -3,6 +3,8 @@ import { MongooseFindByReference } from 'mongoose-find-by-reference';
 import { idToString, stringToId } from '../constants/general';
 import Order, { OrderDocT } from './Order.model';
 import { PointI, PointSchema } from './point.models'
+import Cleaner, { ClnDocT } from './cleaner.model';
+import { driverCleanerPopulate, driverCleanerSelect } from '../Routes/driver/constants';
 
 export type DriverDocT = Document<unknown, any, DriverI> & DriverI & {
     _id: Types.ObjectId;
@@ -20,9 +22,18 @@ export interface DriverI {
     totalPayout?: number //in cents
     activeOrders: Types.ObjectId[]
     location: PointI
+    masters: Types.ObjectId[]
 }
 
 export interface DriverMethodsI {
+    /**
+     * Get Cleaners driver has works with
+     */
+    cleaners(
+        this: DriverDocT,
+        masterId?: string | Types.ObjectId
+    ): Promise<ClnDocT[]>
+
     getActiveOrders(
         this: DriverDocT
     ): Promise<OrderDocT[]>
@@ -71,6 +82,10 @@ const DriverSchema = new Schema<DriverI, DriveModelT, DriverMethodsI>({
         ref: 'User',
         unique: true
     },
+    masters: [{
+        type: Schema.Types.ObjectId,
+        ref: 'Master'
+    }],
     lastFour: {
         type: Number,
         required: true
@@ -168,6 +183,19 @@ DriverSchema.methods.removeActiveOrder = async function(
             activeOrders: stringToId(orderId)[0]
         }
     })
+}
+
+DriverSchema.methods.cleaners = async function(master?: string | Types.ObjectId) {
+    const driver = this
+
+    const cleaners = await Cleaner.find(
+        {
+            master: {$in: master ? [master] : driver.masters },
+        },
+        driverCleanerSelect
+    ).populate(driverCleanerPopulate)
+
+    return cleaners
 }
 
 const Driver = model('Driver', DriverSchema)

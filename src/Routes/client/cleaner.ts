@@ -1,7 +1,7 @@
 import express, { Response, Request } from 'express'
 import { stringToId } from '../../constants/general'
 import { getMeters, validateGeo } from '../../constants/location'
-import { auth, authBodyI } from '../../middleware/auth'
+import { DriverAuthI, auth, authBodyI } from '../../middleware/auth'
 import Cleaner from '../../Models/cleaner.model'
 
 const cleanerR = express.Router()
@@ -57,6 +57,13 @@ interface authLocationI extends authBodyI{
     maxDistance: number //orders within this range in miles
 }
 
+/**
+ * @param latitude latitude of user
+ * @param longitude longitude of user
+ * @param maxDistance max distance in miles
+ * @returns array of cleaners within maxDistance
+ * @description returns array of cleaners within maxDistance
+ */
 cleanerR.post(
 '/cleaners_nearby',
 auth,
@@ -107,6 +114,7 @@ async (req: Request<{}, {}, authLocationI>, res: Response) => {
         res.status(400).send(e)
     }
 })
+        
 
 /*
     set preferred cleaner
