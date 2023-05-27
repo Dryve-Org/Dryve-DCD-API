@@ -58,11 +58,6 @@ export const intersectIds = (listOne: IdI[], listTwo: IdI[]): string[] => {
 }
 
 export interface desiredServicesI {
-    /**
-     * Weight of the item in pounds
-     * if perPound is true, this is required to calculate the price
-     */
-    weight: number,
     quantity: number,
     service: string //stored prices of each service
 }
@@ -103,12 +98,12 @@ export const handleDesiredServices = async (
         if(!match) throw 'unable to handle services'
 
         if(match.perPound) {
-            let cost: number = match.price * service.weight * service.quantity
+            let cost: number = match.price * service.quantity
 
             total += cost
 
             return {
-                quantity: Math.round(service.weight),
+                quantity: service.quantity,
                 cost,
                 service: match
             }
