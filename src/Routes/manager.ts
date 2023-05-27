@@ -139,7 +139,7 @@ managerRouter.post('/order/create', managerAuth, async (req: Request<{}, {}, Man
 
         //desired services must be provide
         //before going to cleaners
-        if(!isDropOff && desiredServices) {
+        if(!isDropOff && desiredServices !== undefined) {
             const {
                 total
             } = await handleDesiredServices(desiredServices)
