@@ -497,7 +497,7 @@ async (req: Request<{ orderId: string }, {}, DriverAuthI>, res: Response) => {
             }
 
             order.orderClosed = true
-            apt.removeOrderToUnit(order.building, order.unit)
+            await apt.removeOrderToUnit(order.building, order.unit)
                 .catch((e) => {
                     console.log(e)
                     res.status(500).send(`

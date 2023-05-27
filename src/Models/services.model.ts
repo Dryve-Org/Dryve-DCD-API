@@ -20,18 +20,20 @@ export interface ServiceI {
     */
     priceId: string
     /**
-     * If the price is per pound
-    */
-    perPound: boolean
-    /**
      * Weight of the clothes in pounds
      * if perPound is true, this is required to calculate the price
     */
     weight: number
 }
 
-interface ServiceMethodsI {
 
+
+interface ServiceMethodsI {
+    addService(
+        title: string,
+        price: number,
+        description?: string
+    ): Promise<ServiceDocT>
 }
 
 export type ServiceModelT = Model<ServiceI, {}, ServiceDocT>
@@ -43,7 +45,8 @@ const ServiceSchema = new Schema<ServiceI, ServiceModelT, ServiceMethodsI>({
     },
     title: {
         type: String,
-        required: true
+        required: true,
+        unique: true
     },
     productId: {
         type: String,
@@ -51,11 +54,7 @@ const ServiceSchema = new Schema<ServiceI, ServiceModelT, ServiceMethodsI>({
     priceId: {
         type: String,
     },
-    description: String,
-    perPound: {
-        type: Boolean,
-        default: false
-    }
+    description: String
 })
 
 ServiceSchema.plugin(MongooseFindByReference)
@@ -89,6 +88,24 @@ ServiceSchema.pre('save', async function (next) {
 
     next()
 })
+
+ServiceSchema.methods.addService = async function (
+    title: string,
+    price: number,
+    description?: string
+) {
+    const service = this
+
+    const newService = new Service({
+        title,
+        price,
+        description
+    })
+
+    await newService.save()
+
+    return newService
+}
 
 const Service = model('Service', ServiceSchema)
 

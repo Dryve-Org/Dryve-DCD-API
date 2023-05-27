@@ -19,7 +19,7 @@ export interface UnitI {
     client?: Types.ObjectId
     isActive?: boolean
     address: Types.ObjectId
-    activeOrder?: Types.ObjectId
+    activeOrder: Types.ObjectId | null
     unitId: string
     /**
      * contains date in unix format of when queued. Null if not in queue
@@ -326,7 +326,8 @@ const AptSchema = new Schema<AptI, AptModelT, AptIMethods>(
                         },
                         activeOrder: {
                             type: Schema.Types.ObjectId,
-                            ref: 'Order'
+                            ref: 'Order',
+                            nullable: true
                         },
                         unitId: {
                             type: String,
@@ -500,7 +501,8 @@ AptSchema.method<AptDocT>('addUnit', async function(
         address: addy._id,
         isActive: false,
         queued: null,
-        unitId: 'N/A'
+        unitId: 'N/A',
+        activeOrder: null
     })
 
     await apt.save()
@@ -555,7 +557,8 @@ AptSchema.method('addUnits', async function(
             isActive: false,
             client: undefined,
             queued: null,
-            unitId
+            unitId,
+            activeOrder: null
         })
     }
 
@@ -729,7 +732,7 @@ AptSchema.method<AptDocT>('removeOrderToUnit', async function(
     if(!apt.buildings.get(buildingId)) throw err(400, 'could not find building')
     if(!unit) throw err(400, 'could not find unit')
 
-    unit.activeOrder = undefined
+    unit.activeOrder = null
     apt.buildings.get(buildingId)?.units.set(unitId, unit)
 
     await apt.save()

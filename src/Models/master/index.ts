@@ -13,6 +13,12 @@ export interface ClientPreferenceI {
 
 export interface MasterI {
     apartment_id_index: number
+    products: {
+        name: string
+        description: string
+        priceId: string
+        productId: string
+    }
     /*
         Area services    
 
