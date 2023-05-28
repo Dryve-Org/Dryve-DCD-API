@@ -20,6 +20,28 @@ interface CreateSAPI extends ManagerAuthI {
     masterId: string
 }
 
+SapR.get(
+'/SAP/:SAPid',
+managerAuth,
+async (req: Request<{SAPid: string}, {}, ManagerAuthI>, res: Response) => {
+    try {
+        const { SAPid } = req.params
+
+        const sap = await SAP.findById(SAPid)
+        if(!sap) {
+            throw err(404, 'unable to find SAP')
+        }
+
+        res.send(sap)
+    } catch(e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+        } else {
+            res.status(500).send(e)
+        }
+    }
+})
+
 SapR.post(
 '/SAP/CreateSAP', 
 managerAuth, 
@@ -40,6 +62,9 @@ async (req: Request<{}, {}, CreateSAPI>, res: Response) => {
             name,
             description
         })
+            .catch(() => {
+                throw err(400, 'failed to create a new services and products schema. Make sure the name is unique')
+            })
 
         const master = await Master.findById(masterId ? masterId : '000000000000000000000000')
             
@@ -79,5 +104,67 @@ async (req: Request<{}, {}, CreateSAPI>, res: Response) => {
         }
     }
 })
+
+interface addProdI extends ManagerAuthI {
+    name: string
+    price: number
+    description: string
+    isService: boolean
+}
+
+SapR.post(
+'/SAP/:SAPid/addProd',
+managerAuth,
+async (req: Request<{SAPid: string}, {}, addProdI>, res: Response) => {
+    try {
+        const { SAPid } = req.params
+        const {
+            name,
+            description,
+            price,
+            isService
+        } = req.body
+        
+        const sap = await SAP.findById(SAPid)
+        if(!sap) {
+            throw err(404, 'unable to find SAP')
+        }
+
+        await sap.addProd(name, description, price, isService)
+
+        res.status(200).send(sap)
+    } catch(e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+        } else {
+            res.status(500).send(e)
+        }
+    }
+})
+
+SapR.delete(
+'/SAP/:SAPid/removeProd/:prodId',
+managerAuth,
+async (req: Request<{SAPid: string, prodId: string}, {}, ManagerAuthI>, res: Response) => {
+    try {
+        const { SAPid, prodId } = req.params
+
+        const sap = await SAP.findById(SAPid)
+        if(!sap) {
+            throw err(404, 'unable to find SAP')
+        }
+
+        await sap.removeProd(prodId)
+
+        res.status(200).send(sap)
+    } catch(e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+        } else {
+            res.status(500).send(e)
+        }
+    }
+})
+
 
 export default SapR
