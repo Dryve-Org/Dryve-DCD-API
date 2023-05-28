@@ -97,21 +97,8 @@ export const handleDesiredServices = async (
         const match = _.find(services, { _id: stringToId(service.service)[0] })
         if(!match) throw 'unable to handle services'
 
-        if(match.perPound) {
-            let cost: number = match.price * service.quantity
-
-            total += cost
-
-            return {
-                quantity: service.quantity,
-                cost,
-                service: match
-            }
-        }
-
         const cost = match.price * service.quantity
         total += cost
-
         return {
             quantity: service.quantity,
             cost,

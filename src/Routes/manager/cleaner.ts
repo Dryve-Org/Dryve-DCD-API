@@ -10,7 +10,9 @@ import { StringDecoder } from 'string_decoder'
 import { String } from 'lodash'
 import Master from '../../Models/master'
 
-
+/**
+ * manager routes for cleaners
+ */
 const cleanerR = express.Router()
 
 interface AddCleanerI extends ManagerAuthI {
@@ -130,8 +132,7 @@ async (req: Request<{ clnId: string }, {}, AddServiceI>, res: Response) => {
         const svc = await Service.create({
             title: service.title,
             description: service.description,
-            price: service.price,
-            perPound: service.perPound || false
+            price: service.price
         })
         .catch((e) => { console.log(e); throw e })
 

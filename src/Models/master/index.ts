@@ -25,6 +25,7 @@ export interface MasterI {
         Base this off of ServiceI
     */
     clientPreferences: ClientPreferenceI[]
+    servicesAndProducts: Types.ObjectId[]
 }
 
 export type MasterDocT = mongoose.Document<unknown, any, MasterI> & MasterI & {
@@ -36,7 +37,7 @@ interface MasterIMethods {
     /**
      * increment apartment id index
      * @return {Promise<MasterI>} - updated master document
-     */
+    */
     incrementApartmentIdIndex: () => Promise<MasterI>
 
     addClientPreference: (
@@ -73,7 +74,12 @@ const MasterSchema = new Schema<MasterI, MasterModelT, MasterIMethods> (
                     ]
                 }
             }
-        ]
+        ],
+        servicesAndProducts: [{
+            type: Schema.Types.ObjectId,
+            ref: 'ServicesAndProducts',
+            default: []
+        }]
     }
 )
 
