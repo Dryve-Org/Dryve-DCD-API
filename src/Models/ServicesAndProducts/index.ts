@@ -29,6 +29,13 @@ export interface SAPI extends SAPMethodsI {
         */
         sapType: 'service' | 'product'
     }[]
+    /**
+     * The default bag load for the service
+     * 
+     * This is used for when the driver gets the quantity of bags
+     * it's already put in the cart for the order.
+    */
+    defualtBagLoad: string
 }
 
 interface SAPMethodsI {
@@ -55,6 +62,15 @@ interface SAPMethodsI {
         this: SAPDocT,
         id: string | Types.ObjectId
     ): Promise<SAPDocT>
+
+    setDefaultBagLoad(
+        this: SAPDocT,
+        serviceId: string | Types.ObjectId
+    ): Promise<SAPDocT>
+
+    listSAPs(
+        this: SAPDocT
+    ): Promise<SAPI[]>
 }
 
 const SAPSchema = new Schema<SAPI, Model<SAPI, {}, SAPDocT>, SAPMethodsI>({
@@ -87,7 +103,10 @@ const SAPSchema = new Schema<SAPI, Model<SAPI, {}, SAPDocT>, SAPMethodsI>({
                 enum: ['service', 'product']
             }
         }
-    ]
+    ],
+    defualtBagLoad: {
+        type: String
+    }
 })
 
 SAPSchema.plugin(MongooseFindByReference)
@@ -167,6 +186,28 @@ SAPSchema.methods.removeProd = async function(
         .catch(e => {
             console.log(e)
             throw err(500, 'could not save sap after removing product')
+        })
+
+    return sap
+}
+
+SAPSchema.methods.setDefaultBagLoad = async function(
+    serviceId: string | Types.ObjectId
+) {
+    const sap = this
+
+    // @ts-ignore
+    const service = sap.list.find(prod => prod._id.toString() === serviceId.toString())
+    if(!service) {
+        throw err(400, 'could not find service')
+    }
+
+    sap.defualtBagLoad = serviceId.toString()
+
+    await sap.save()
+        .catch(e => {
+            console.log(e)
+            throw err(500, 'could not save sap after setting default bag load')
         })
 
     return sap

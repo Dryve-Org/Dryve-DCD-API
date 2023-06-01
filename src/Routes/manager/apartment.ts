@@ -11,7 +11,8 @@ import ManagerR from './manager'
 import v from 'validator'
 import { AptToUnitI } from '../interface'
 import Cleaner from '../../Models/cleaner.model'
-import { idToString } from '../../constants/general'
+import { err, idToString } from '../../constants/general'
+import SAP from '../../Models/ServicesAndProducts'
 
 const AptR = express.Router()
 
@@ -336,6 +337,48 @@ async (req: Request<AptToUnitI, {}, AddClientToUnit>, res: Response) => {
             })
     } catch(e) {
         res.status(400).send(e)
+    }
+})
+
+interface SetSAPsI extends ManagerAuthI {
+    SAPId: string
+}
+
+/**
+ * set services and products
+*/
+AptR.put(
+'/apartment/:aptId/set_services_and_products',
+managerAuth,
+async (req: Request<AptToUnitI, {}, SetSAPsI>, res: Response) => {
+    try {
+        const {
+            /**
+             * apt _id not id from unit id  
+            */ 
+            aptId 
+        } = req.params
+        
+        const { SAPId } = req.body
+        if(!SAPId) throw err(400, 'invalid body')
+
+        const sap = await SAP.findById(SAPId)
+        if(!sap) throw err(400, 'invalid SAP id')
+
+        const apt = await Apt.findById(aptId)
+        if(!apt) throw err(400, 'invalid apartment id')
+
+        apt.servicesAndProducts = sap._id
+
+        await apt.save()
+
+        res.status(200).send(apt)
+    } catch(e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+        } else {
+            res.status(500).send(e)
+        }
     }
 })
 

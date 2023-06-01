@@ -391,16 +391,11 @@ OrderSchema.method<OrderDocT>('invoiceClient', async function() {
         throw err(400, 'no cleaner found in order')
     }
 
-    const handleServices = cleaner.useMinPrice ?
-    await handleDesiredServices(
-        order.desiredServices,
-        cleaner.minPrice,
-        cleaner.minPriceServiceId.toString()
-    ) :
-    await handleDesiredServices(order.desiredServices)
+    const handleServices = await handleDesiredServices(order.desiredServices, order.master)
 
     if(!order.paymentLinkURL) {
         const lineItems = handleServices.servicesWithPrice.map((dS) => ({
+            //@ts-ignore
             price: dS.service.priceId,
             quantity: dS.quantity,
         }))

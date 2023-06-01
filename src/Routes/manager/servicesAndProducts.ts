@@ -142,6 +142,39 @@ async (req: Request<{SAPid: string}, {}, addProdI>, res: Response) => {
     }
 })
 
+interface setDefaultBagLoadI extends ManagerAuthI {
+    serviceId: string
+}
+
+SapR.post(
+'/SAP/:SAPid/setDefaultBagLoad',
+managerAuth,
+async (req: Request<{SAPid: string}, {}, setDefaultBagLoadI>, res: Response) => {
+    try {
+        const { SAPid } = req.params
+        const { serviceId } = req.body
+        
+        if(!serviceId) {
+            throw err(400, 'service id not provided')
+        }
+
+        const sap = await SAP.findById(SAPid)
+        if(!sap) {
+            throw err(404, 'unable to find SAP')
+        }
+
+        await sap.setDefaultBagLoad(serviceId)
+
+        res.status(200).send(sap)
+    } catch(e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+        } else {
+            res.status(500).send(e)
+        }
+    }
+})
+
 SapR.delete(
 '/SAP/:SAPid/removeProd/:prodId',
 managerAuth,

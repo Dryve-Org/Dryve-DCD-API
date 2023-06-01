@@ -277,6 +277,7 @@ export interface AptI extends AptIMethods{
     paidFor: boolean
     aptId: string
     unitIndex: number
+    servicesAndProducts: Types.ObjectId
 }
 
 type AptModelT = Model<AptI, {}, AptIMethods>
@@ -286,6 +287,10 @@ type AptModelT = Model<AptI, {}, AptIMethods>
 */
 const AptSchema = new Schema<AptI, AptModelT, AptIMethods>(
     {
+        servicesAndProducts: {
+            type: Schema.Types.ObjectId,
+            ref: 'ServicesAndProducts'
+        },
         name: {
             type: String,
             required: true

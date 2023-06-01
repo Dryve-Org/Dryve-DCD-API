@@ -5,8 +5,13 @@ import express, {
 import { err, idToString } from '../../constants/general'
 import { cleanerProAuth, CleanerProAuthI } from '../../middleware/auth'
 import Cleaner from '../../Models/cleaner.model'
+import SAP, { SAPI } from '../../Models/ServicesAndProducts'
 import { CleanerProCleanerPopulate, CleanerProCleanerSelect, CleanerProOrderPopulate, CleanerProOrderSelect } from './constants'
+import Master from '../../Models/master'
 
+/**
+ * Cleaner Profile Routes for cleaner
+ */
 const cleanerR = express.Router()
 
 cleanerR.get(
@@ -126,16 +131,39 @@ async (req: Request<{cleanerId: string}, {}, CleanerProAuthI>, res: Response) =>
         //query: getting active orders and 
         // populate persons information
         const cleaner = await Cleaner.findById(cleanerId)
-            .select('services')
-            .populate('services')
-            .exec()
+            .select('master')
 
-        if(!cleaner) throw 'invalid cleaner id'
+        if(!cleaner) throw err(400, 'invalid cleaner id')
+
+        const master = await Master.findById(cleaner.master)
+            .select('servicesAndProducts')
+
+        if(!master) throw err(500, 'invalid master id')
+
+        const Saps = await SAP.find({
+            _id: {'$in': master.servicesAndProducts}
+        })
+
+        if(!Saps) throw err(500, 'something went wrong when getting services and products')
+
+        const services: SAPI['list'] = []
+
+        Saps.forEach(sap => {
+            sap.list.forEach(prod => {
+                if(prod.sapType === 'service') {
+                    services.push(prod)
+                }
+            })
+        })
 
 
-        res.status(200).send(cleaner.services)
-    } catch(e) {
-        res.status(400).send(e)
+        res.status(200).send(services)
+    } catch(e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+        } else {
+            res.status(500).send('something went wrong')
+        }
     }
 })
 
