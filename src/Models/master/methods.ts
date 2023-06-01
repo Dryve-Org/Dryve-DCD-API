@@ -1,7 +1,11 @@
 import { Types } from 'mongoose'
 import { ClientPreferenceI, MasterDocT, MasterI } from '.'
 import { err } from '../../constants/general'
+<<<<<<< HEAD
 import SAP, { SAPI } from '../ServicesAndProducts'
+=======
+import { SAPDocT, SAPI } from '../ServicesAndProducts'
+>>>>>>> 53a8ba7233a169545a0dcd1b7edf2722f6395213
 
 /**
  * increment apartment id index
