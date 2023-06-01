@@ -94,8 +94,6 @@ ServiceSchema.methods.addService = async function (
     price: number,
     description?: string
 ) {
-    const service = this
-
     const newService = new Service({
         title,
         price,

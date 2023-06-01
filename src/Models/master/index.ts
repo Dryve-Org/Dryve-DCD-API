@@ -1,5 +1,6 @@
 import mongoose, { Schema, model, Types, Model } from 'mongoose'
 import { addClientPreference, incrementApartmentIdIndex, removeClientPreference } from './methods'
+import { SAPI } from '../ServicesAndProducts'
 
 export interface ClientPreferenceI {
     title: string
@@ -49,6 +50,12 @@ interface MasterIMethods {
     removeClientPreference: (
         id: string | Types.ObjectId
     ) => Promise<MasterI>
+
+    /**
+     * 
+     * @returns {Promise<SAPI['list']>} - list of all services and products
+     */
+    listAllSAPs: () => Promise<SAPI['list']>
 }
 
 export type MasterModelT = Model<MasterI, {}, MasterIMethods>
