@@ -8,7 +8,7 @@ export type SAPDocT = mongoose.Document<unknown, any, SAPI> & SAPI & {
 }
 
 export interface SAPI extends SAPMethodsI {
-    _id: Types.ObjectId
+    _id?: Types.ObjectId | string
     name: string
     description: string
     list: {

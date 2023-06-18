@@ -66,10 +66,6 @@ export const CleanerProOrderPopulate = [
         path: 'client',
         model: 'User',
         select: CleanerProClientSelect
-    },
-    {
-        path: 'desiredServices.service',
-        model: 'Service',
     }
 ]
 

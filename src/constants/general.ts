@@ -60,8 +60,8 @@ export const intersectIds = (listOne: IdI[], listTwo: IdI[]): string[] => {
 }
 
 export interface desiredServicesI {
-    quantity: number,
-    service: string //stored prices of each service
+    quantity: number
+    service: SAPI['list'][1]
 }
 
 
@@ -86,6 +86,7 @@ export const handleDesiredServices = async (
     const master = await Master.findById(masterId)
     if(!master) throw 'unable to find master'
 
+    //@ts-ignore
     let services: SAPI['list'] = await master.listServices()
     if(!services) throw 'unable to get services'
 
@@ -95,7 +96,7 @@ export const handleDesiredServices = async (
     let total: number = 0
 
     const servicesWithPrice = desiredServices.map(dService => {
-        const match = _.find(services, { _id: stringToId(dService.service)[0] })
+        const match = _.find(services, { name: dService.service.name })
         if(!match || typeof match == 'number') throw 'unable to handle services'
 
         //@ts-ignore

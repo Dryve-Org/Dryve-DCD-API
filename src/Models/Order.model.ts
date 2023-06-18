@@ -9,7 +9,8 @@ import { UserI } from './user.model'
 import Cleaner, { CleanerI } from './cleaner.model'
 import e from 'express'
 import { AptI } from './aparmtent/apartment.model'
-import { MasterI } from './master'
+import Master, { MasterI } from './master'
+import { SAPI } from './ServicesAndProducts'
 
 export type OrderDocT = mongoose.Document<unknown, any, OrderI> & OrderI & {
     _id: mongoose.Types.ObjectId
@@ -316,11 +317,28 @@ const OrderSchema = new Schema<OrderI, OrderModelT, OrderMethodsI>({
         type: Boolean
     },
     desiredServices: [{
-        quantity: Number,
-        weight: Number,
+        quantity: Number,  
         service: {
-            type: Schema.Types.ObjectId,
-            ref: 'Service'
+            _id: {
+                type: String
+            },
+            name: {
+                type: String,
+            },
+            description: String,
+            price: {
+                type: Number
+            },
+            priceId: {
+                type: String
+            },
+            productId: {
+                type: String
+            },
+            sapType: {
+                type: String,
+                enum: ['service', 'product']
+            }
         }
     }],
     apartment: {
@@ -359,15 +377,42 @@ const OrderSchema = new Schema<OrderI, OrderModelT, OrderMethodsI>({
 OrderSchema.plugin(MongooseFindByReference)
 
 OrderSchema.method<OrderDocT>('updateDesiredServices', async function(
-    desiredServices: desiredServicesI[]
+    desiredServices: {
+        quantity: number,
+        serviceId: string
+    }[]
 ) {
     const order = this as OrderDocT
+
+    const master = await Master.findById(order.master)
+    if(!master) {
+        throw err(400, 'no master found')
+    }
+
+    const saps = await master.listServices()
+    const updatedDesiredServices: desiredServicesI[] = []
+
+    desiredServices.forEach((d) => {
+        const foundService = saps.find(sap => {
+            //@ts-ignore
+            return sap._id.toString() === d.service.toString()
+        })
+
+        if(!foundService) {
+            throw err(400, 'invalid service')
+        }
+
+        updatedDesiredServices.push({
+            quantity: d.quantity,
+            service: foundService
+        })
+    })
 
     // if(order.orderPaidfor) {
     //     throw 'order was already paid for'
     // }
 
-    order.desiredServices = desiredServices
+    order.desiredServices = updatedDesiredServices
     
     await order.save()
 

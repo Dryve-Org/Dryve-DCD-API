@@ -1,11 +1,7 @@
 import { Types } from 'mongoose'
 import { ClientPreferenceI, MasterDocT, MasterI } from '.'
 import { err } from '../../constants/general'
-<<<<<<< HEAD
-import SAP, { SAPI } from '../ServicesAndProducts'
-=======
-import { SAPDocT, SAPI } from '../ServicesAndProducts'
->>>>>>> 53a8ba7233a169545a0dcd1b7edf2722f6395213
+import SAP, { SAPDocT, SAPI } from '../ServicesAndProducts'
 
 /**
  * increment apartment id index
@@ -91,6 +87,8 @@ export const listServices = async function(this: MasterDocT) {
             }
         })
     })
+
+    console.log(services)
 
     return services
 }
