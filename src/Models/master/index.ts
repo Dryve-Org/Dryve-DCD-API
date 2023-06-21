@@ -1,5 +1,6 @@
 import mongoose, { Schema, model, Types, Model } from 'mongoose'
-import { addClientPreference, incrementApartmentIdIndex, removeClientPreference } from './methods'
+import { addClientPreference, incrementApartmentIdIndex, listServices, removeClientPreference } from './methods'
+import { SAPI } from '../ServicesAndProducts'
 
 export interface ClientPreferenceI {
     title: string
@@ -13,12 +14,19 @@ export interface ClientPreferenceI {
 
 export interface MasterI {
     apartment_id_index: number
+    products: {
+        name: string
+        description: string
+        priceId: string
+        productId: string
+    }
     /*
         Area services    
 
         Base this off of ServiceI
     */
     clientPreferences: ClientPreferenceI[]
+    servicesAndProducts: Types.ObjectId[]
 }
 
 export type MasterDocT = mongoose.Document<unknown, any, MasterI> & MasterI & {
@@ -30,7 +38,7 @@ interface MasterIMethods {
     /**
      * increment apartment id index
      * @return {Promise<MasterI>} - updated master document
-     */
+    */
     incrementApartmentIdIndex: () => Promise<MasterI>
 
     addClientPreference: (
@@ -42,6 +50,12 @@ interface MasterIMethods {
     removeClientPreference: (
         id: string | Types.ObjectId
     ) => Promise<MasterI>
+
+    /**
+     * 
+     * @returns {Promise<SAPI['list']>} - list of all services and products
+     */
+    listServices: () => Promise<SAPI['list']>
 }
 
 export type MasterModelT = Model<MasterI, {}, MasterIMethods>
@@ -67,7 +81,12 @@ const MasterSchema = new Schema<MasterI, MasterModelT, MasterIMethods> (
                     ]
                 }
             }
-        ]
+        ],
+        servicesAndProducts: [{
+            type: Schema.Types.ObjectId,
+            ref: 'ServicesAndProducts',
+            default: []
+        }]
     }
 )
 
@@ -76,6 +95,8 @@ MasterSchema.method('incrementApartmentIdIndex', incrementApartmentIdIndex)
 MasterSchema.method('addClientPreference', addClientPreference)
 
 MasterSchema.method('removeClientPreference', removeClientPreference)
+
+MasterSchema.method('listServices', listServices)
 
 
 const Master = model<MasterI, MasterModelT>('Master', MasterSchema)

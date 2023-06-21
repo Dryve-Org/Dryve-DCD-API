@@ -11,6 +11,9 @@ import Order, { OrderstatusT } from '../../Models/Order.model'
 import { CleanerProOrderPopulate, CleanerProOrderSelect } from './constants'
 import Master from '../../Models/master'
 
+/**
+ * Order routes for cleaner profile
+ */
 const orderR = express.Router()
 
 interface ParamsI {
@@ -127,11 +130,6 @@ async (req: Request<{orderId: string}, {}, addServices>, res: Response) => {
         order.status
 
         await order.updateDesiredServices(desiredServices)
-
-        await order.populate({
-            path: 'desiredServices.service',
-            model: 'Service'
-        })
 
         await order.save()
             .then(() => {

@@ -1,6 +1,8 @@
 import _ from "lodash";
 import mongoose,{ Types } from "mongoose";
 import Service from "../Models/services.model";
+import Master from "../Models/master";
+import { SAPDocT, SAPI } from "../Models/ServicesAndProducts";
 
 type IdI = Types.ObjectId | string
 
@@ -58,8 +60,8 @@ export const intersectIds = (listOne: IdI[], listTwo: IdI[]): string[] => {
 }
 
 export interface desiredServicesI {
-    quantity: number,
-    service: string //stored prices of each service
+    quantity: number
+    service: SAPI['list'][1]
 }
 
 
@@ -78,57 +80,34 @@ export interface desiredServicesI {
  */
 export const handleDesiredServices = async (
     desiredServices: desiredServicesI[],
-    minPrice?: number,
-    minProductId?: string,
+    masterId: string | Types.ObjectId
 ) => {
     const desiredServiceIds = desiredServices.map(service => service.service.toString())
-    const services = await Service.find({
-        '_id': { $in: desiredServiceIds }
-    })
-    .catch(() => {
-        throw 'unable to verfiy services'
-    })
+    const master = await Master.findById(masterId)
+    if(!master) throw 'unable to find master'
 
-    if(!services) throw 'unable to verfiy services'
+    //@ts-ignore
+    let services: SAPI['list'] = await master.listServices()
+    if(!services) throw 'unable to get services'
+
+    //@ts-ignore
+    services = services.filter(service => desiredServiceIds.includes(service._id.toString()))
     
     let total: number = 0
 
-    const servicesWithPrice = desiredServices.map(service => {
-        const match = _.find(services, { _id: stringToId(service.service)[0] })
-        if(!match) throw 'unable to handle services'
+    const servicesWithPrice = desiredServices.map(dService => {
+        const match = _.find(services, { name: dService.service.name })
+        if(!match || typeof match == 'number') throw 'unable to handle services'
 
-        if(match.perPound) {
-            let cost: number = match.price * service.quantity
-
-            total += cost
-
-            return {
-                quantity: service.quantity,
-                cost,
-                service: match
-            }
-        }
-
-        const cost = match.price * service.quantity
+        //@ts-ignore
+        const cost = match.price * dService.quantity
         total += cost
-
         return {
-            quantity: service.quantity,
+            quantity: dService.quantity,
             cost,
             service: match
         }
     })
-
-    if(minPrice && total < minPrice && minProductId) {
-        const minProduct = await Service.findById(minProductId)
-        if(!minProduct) throw 'unable to find min product'
-
-        servicesWithPrice.push({
-            quantity: 1,
-            cost: minProduct.price,
-            service: minProduct
-        })
-    }
 
     return {
         total,

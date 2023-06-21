@@ -1,6 +1,7 @@
 import { Types } from 'mongoose'
 import { ClientPreferenceI, MasterDocT, MasterI } from '.'
 import { err } from '../../constants/general'
+import SAP, { SAPDocT, SAPI } from '../ServicesAndProducts'
 
 /**
  * increment apartment id index
@@ -64,4 +65,30 @@ export const removeClientPreference = async function(
     } catch(e) {
         throw err(400, 'could not remove client preference')
     }
+}
+
+export const listServices = async function(this: MasterDocT) {
+    const master = this
+
+    const saps = await SAP.find({
+        _id: {'$in': master.servicesAndProducts}
+    }, {
+        list: 1
+    })
+
+    if(!saps) throw 'unable to get SAPs'
+
+    const services: SAPI['list'] = []
+
+    saps.forEach(sap => {
+        sap.list.forEach(prod => {
+            if(prod.sapType === 'service') {
+                services.push(prod)
+            }
+        })
+    })
+
+    console.log(services)
+
+    return services
 }

@@ -2,7 +2,7 @@ require('dotenv').config()
 import express, { Request, Response } from 'express'
 import _, { rest } from 'lodash'
 import { Types } from 'mongoose'
-import { getAptById } from '../../constants/apartment'
+import { getAPtByUnitId, getAptById } from '../../constants/apartment'
 import { sendEmailVerify } from '../../constants/email/setup'
 import { now } from '../../constants/time'
 import { isMatchingIds, noUnMatchingIds, servicesExist } from '../../constants/validation'
@@ -45,28 +45,31 @@ const findActiveOrder = async (
 
 /**
  * Driver Creates order by the unit 
+ * 
+ * this needs to be updated to unit id
 */
 orderR.post(
-'/order/create/:aptId/:bldId/:unitId',
+'/order/create/:unitId',
 driverAuth,
 async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
     try {
         const {
-            aptId,
-            bldId,
             /**
-             * this is the unit number, not the unit id
+             *unit id
             */
             unitId
         } = req.params
         const { driver } = req.body
 
-        const apt = await Apt.findById(aptId)
+        const apt = await getAPtByUnitId(unitId)
         if(!apt) throw 'invalid apartment id'
 
-        const unit = apt.buildings
-            .get(bldId)?.units
-            .get(unitId)
+        const unitData = apt.getUnitId(unitId)
+        if(!unitData) throw 'invalid unit id'
+
+        const unit = unitData[2]
+        const bldId = unitData[0]
+        const unitNum = unitData[1]
 
         //client and isActive must be true to continue
         if(!unit?.client || !unit?.isActive || !unit || unit.queued === null) throw `
@@ -135,7 +138,7 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         await apt.addOrderToUnit(bldId, unitId, order.id)
             .catch(() => {
                 console.error(`
-                    unable to add order ${order.id} to ${bldId}/${apt} of ${apt.name}
+                    unable to add order ${order.id} to unit ${unitId}
                 `)
             })
 
@@ -147,28 +150,40 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         )
         
         res.status(200).send(order)
-    } catch(e) {
-        res.status(400).send(e)
+    } catch(e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+        } else {
+            res.status(500).send(e)
+        }
     }
 })
 
 /**
  * Cancel Order
+ * 
+ * This needs to be updated to unit id
 */
 orderR.delete(
-'/order/:aptId/:bldId/:unitId/cancel_order',
+'/order/:unitId/cancel_order',
 driverAuth,
 async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
     try {
-        const { 
-            aptId,
-            bldId,
+        const {
             unitId
         } = req.params
         const { driver } = req.body
 
-        const apt = await getAptById(aptId)
-        const unit = apt.getUnit(bldId, unitId)
+        const apt = await getAPtByUnitId(unitId)
+        if(!apt) throw 'invalid apartment id'
+
+        const unitData = apt.getUnitId(unitId)
+        if(!unitData) throw 'invalid unit id'
+
+        const unit = unitData[2]
+        const bldId = unitData[0]
+        const unitNum = unitData[1]
+        
         if(!unit.activeOrder) {
             throw 'order already does not have an active order in this unit'
         }
@@ -497,7 +512,7 @@ async (req: Request<{ orderId: string }, {}, DriverAuthI>, res: Response) => {
             }
 
             order.orderClosed = true
-            apt.removeOrderToUnit(order.building, order.unit)
+            await apt.removeOrderToUnit(order.building, order.unit)
                 .catch((e) => {
                     console.log(e)
                     res.status(500).send(`

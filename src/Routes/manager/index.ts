@@ -5,9 +5,11 @@ import ManagerR from './manager'
 import AptManR from './aptMan'
 import cleanerProR from './cleanerPro'
 import MasterR from './master'
+import SapR from './servicesAndProducts'
 
 const ManagerRouter = express.Router()
 
+ManagerRouter.use('', SapR)
 ManagerRouter.use('', AptR)
 ManagerRouter.use('', ManagerR)
 ManagerRouter.use('', cleanerR)
