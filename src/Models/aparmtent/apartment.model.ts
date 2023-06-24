@@ -204,7 +204,6 @@ interface AptIMethods {
      * @return {Promise<AptDocT>} - updated Apt document
     */
     removeOrderToUnit(
-        buildingId: string,
         unitId: string
     ): Promise<AptDocT>
 
@@ -726,15 +725,15 @@ AptSchema.method('addOrderToUnit', async function(
 
 AptSchema.method<AptDocT>('removeOrderToUnit', async function(
     this: AptDocT,
-    buildingId: string,
     unitId: string
 ){
     const apt = this
 
-    const unit = apt.buildings.get(buildingId)?.units
-        .get(unitId)
+    const unitData = apt.getUnitId(unitId)
+    if(!unitData) throw err(400, 'could not find unit')
+
+    const [,buildingId, unit] = unitData
     
-    if(!apt.buildings.get(buildingId)) throw err(400, 'could not find building')
     if(!unit) throw err(400, 'could not find unit')
 
     unit.activeOrder = null
