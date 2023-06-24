@@ -130,7 +130,6 @@ DriverSchema.methods.getActiveOrders = async function() {
 DriverSchema.methods.removeActiveOrders = async function(
     orderIds: string[] | Types.ObjectId[]
 ) {
-
     const driver = this
 
     await driver.update({

@@ -181,8 +181,6 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         if(!unitData) throw 'invalid unit id'
 
         const unit = unitData[2]
-        const bldId = unitData[0]
-        const unitNum = unitData[1]
         
         if(!unit.activeOrder) {
             throw 'order already does not have an active order in this unit'
@@ -228,7 +226,7 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         client?.save()
         
         driver.removeActiveOrder(order.id)
-        await apt.removeOrderToUnit(bldId, unitId)
+        await apt.removeOrderToUnit(order.unitId)
 
         order.status = "Cancelled"
         order.closedTime = now()
@@ -499,7 +497,7 @@ async (req: Request<{ orderId: string }, {}, DriverAuthI>, res: Response) => {
 
         if(!order) throw 'invalid order Id'
 
-        driver.removeActiveOrder(orderId)
+        await driver.removeActiveOrder(orderId)
         
         if(order.orderPaidfor || true) {
             const apt = await Apt.findById(order.apartment._id)
@@ -512,7 +510,7 @@ async (req: Request<{ orderId: string }, {}, DriverAuthI>, res: Response) => {
             }
 
             order.orderClosed = true
-            await apt.removeOrderToUnit(order.building, order.unit)
+            await apt.removeOrderToUnit(order.unitId)
                 .catch((e) => {
                     console.log(e)
                     res.status(500).send(`
