@@ -22,6 +22,12 @@ export const getAptByAptId = async (aptId: string) => {
     return apt
 }
 
+/**
+ * Get Apartment By Unit Id and will throw if cant receive it
+ * @param {string} orderId - string
+ * @returns {AptDocT} The Apartment object
+ * 
+*/
 export const getAPtByUnitId = async (unitId: string) => {
     const apt = await Apt.findOne({ 
         aptId: extractUnitId(unitId)[0] 

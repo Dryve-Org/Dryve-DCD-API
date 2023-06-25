@@ -20,6 +20,15 @@ export interface UnitI {
     isActive?: boolean
     address: Types.ObjectId
     activeOrder: Types.ObjectId | null
+    /**
+     * This is the unit's readable id that will be used
+     * throughtout the this api
+     * 
+     * The first 3 characters are the apartment's 
+     * readable id
+     * 
+     * example: A01-001, A01-002, A01-003
+     */
     unitId: string
     /**
      * contains date in unix format of when queued. Null if not in queue
@@ -190,8 +199,7 @@ interface AptIMethods {
      * @return {Promise<AptDocT>} - updated Apt document
      */
     addOrderToUnit(
-        buildingId: string,
-        unitId: string,
+        unitId: UnitI['unitId'],
         orderId: string | Types.ObjectId
     ): Promise<AptDocT>
     
@@ -693,30 +701,21 @@ AptSchema.method('deactivateUnit', async function(
 
 AptSchema.method('addOrderToUnit', async function(
     this: AptDocT,
-    buildingId: string,
-    unitId: string,
+    unitId: UnitI['unitId'],
     orderId: Types.ObjectId
 ){
     const apt = this
 
-    const unit = apt.buildings.get(buildingId)?.units
-        .get(unitId)
-    
-    if(apt.buildings.get(buildingId)) err(400, 'could not find building')
+    const unitData = apt.getUnitId(unitId)
+    if(!unitData) throw err(400, 'could not find unit')
+    const [ bldNum, unitNum, unit] = unitData
+
     if(!unit) throw err(400, 'could not find unit')
     if(!unit.client) throw err(400, 'client already does not exists')
     if(!unit.isActive) throw err(400, 'unit not active')
 
-    // apt.buildings.get(buildingId)?.units.set(unitId, {
-    //     ...unit,
-    //     isActive: true,
-    //     activeOrder: orderId
-    // })
-
     unit.activeOrder = orderId
-    apt.buildings.get(buildingId)?.units.set(unitId, unit)
-
-    // await apt.save()
+    apt.buildings.get(bldNum)?.units.set(unitNum, unit)
 
     await apt.save()
 

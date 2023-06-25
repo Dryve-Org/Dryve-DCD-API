@@ -7,14 +7,14 @@ import { sendEmailVerify } from '../../constants/email/setup'
 import { now } from '../../constants/time'
 import { isMatchingIds, noUnMatchingIds, servicesExist } from '../../constants/validation'
 import { driverAuth, DriverAuthI } from '../../middleware/auth'
-import Apt from '../../Models/aparmtent/apartment.model'
+import Apt, { UnitI } from '../../Models/aparmtent/apartment.model'
 import Cleaner from '../../Models/cleaner.model'
 import Order from '../../Models/Order.model'
 import User from '../../Models/user.model'
 import { AptToUnitI } from '../interface'
-import { driverCleanerPopulate, driverCleanerSelect, driverOrderPopulate, driverOrderSelect } from './constants'
+import { driverAptSelect, driverCleanerPopulate, driverCleanerSelect, driverClientSelect, driverOrderPopulate, driverOrderSelect } from './constants'
 import Master from '../../Models/master'
-import { idToString } from '../../constants/general'
+import { err, extractUnitId, idToString } from '../../constants/general'
 
 const orderR = express.Router()                                                                                                                    
 
@@ -135,7 +135,7 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         client.save()
         apt.dequeueUnit(unit.unitId)
         
-        await apt.addOrderToUnit(bldId, unitId, order.id)
+        await apt.addOrderToUnit(unit.unitId, order.id)
             .catch(() => {
                 console.error(`
                     unable to add order ${order.id} to unit ${unitId}
@@ -149,6 +149,108 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
             driver._id
         )
         
+        res.status(200).send(order)
+    } catch(e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+        } else {
+            res.status(500).send(e)
+        }
+    }
+})
+
+interface ClientOrderCreateI {
+    clientEmail: string
+    unitId: UnitI['unitId']
+}
+
+orderR.post(
+'/order/client_create/:unitId/:clientEmail',
+driverAuth,
+async (req: Request<ClientOrderCreateI, {}, DriverAuthI>, res: Response) => {
+    try {
+        const { clientEmail, unitId } = req.params
+        const { driver } = req.body
+
+        const client = await User.findOne(  
+            {email: clientEmail},
+            { 
+                ...driverClientSelect,
+                orders: 1  
+            }
+        ).populate('preferences')
+        if(!client) throw err(400, 'client not found')
+        if(!client.attachedUnitIds.includes(unitId)) { 
+            throw err(400, 'client not attached to unit')
+        }
+
+        const [ aptId, unitIdNum ] = extractUnitId(unitId)
+        
+        const apt = await Apt.findOne(
+            { aptId },
+            driverAptSelect
+        )
+        if(!apt) throw err(500, 'unable to get apartment data')
+
+        const unitData = apt.getUnitId(unitId)
+        if(!unitData) throw err(400, 'unit not found')
+        const [ bldId, unitNum, unit ] = unitData
+
+        if(
+            !unit.client || 
+            !unit.isActive ||
+            unit.activeOrder
+        ) {
+            throw err(400, 'unit not capable of creating an order')
+        }
+
+        const master = await Master.findById(apt.master)
+        if(!master) throw err(500, 'master could not be retreived')
+
+        const order = await Order.create({
+            master: apt.master,
+            clientPreferences: master.clientPreferences.filter(preference => {
+                //@ts-ignore
+                if(client.preferences.includes(idToString(preference._id))) {
+                    return true
+                }
+            }),
+            client: client._id,
+            origin: unit.address,
+            dropOffAddress: unit.address,
+            status: "Clothes To Cleaner",
+            created: now(),
+            pickUpDriver: driver._id,
+            apartment: apt._id,
+            aptName: apt.name,
+            createdBy: {
+                userType: 'Driver',
+                userTypeId: driver._id
+            },
+            building: bldId,
+            unit: unitNum,
+            unitId: unitIdNum
+        })
+
+        driver.activeOrders.push(order._id)
+        driver.orders.push(order._id)
+        client.orders.push(order._id)
+        apt.dequeueUnit(unitId)
+
+
+        await order.save()
+        driver.save()
+        client.save()
+
+        await apt.addOrderToUnit(unitId, order.id)
+
+        order.addEvent(
+            'Driver created order',
+            '',
+            'driver',
+            driver._id
+        )
+
         res.status(200).send(order)
     } catch(e: any) {
         if(e.status && e.message) {
