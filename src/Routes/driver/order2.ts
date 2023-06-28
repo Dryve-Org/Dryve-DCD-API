@@ -178,10 +178,24 @@ async (req: Request<ClientOrderCreateI, {}, DriverAuthI>, res: Response) => {
                 ...driverClientSelect,
                 orders: 1  
             }
-        ).populate('preferences')
+        ).populate([
+            {
+                path: 'activeOrders',
+                select: driverOrderSelect
+            }
+        ])
         if(!client) throw err(400, 'client not found')
         if(!client.attachedUnitIds.includes(unitId)) { 
             throw err(400, 'client not attached to unit')
+        }
+
+        if(client.activeOrders.length > 0) {
+            client.activeOrders.forEach(order => {
+                //@ts-ignore
+                if(order.unitId === unitId) {
+                    throw err(400, 'client already has an active order for this unit')
+                }
+            })
         }
 
         const [ aptId, unitIdNum ] = extractUnitId(unitId)
@@ -196,25 +210,23 @@ async (req: Request<ClientOrderCreateI, {}, DriverAuthI>, res: Response) => {
         if(!unitData) throw err(400, 'unit not found')
         const [ bldId, unitNum, unit ] = unitData
 
-        if(
-            !unit.client || 
-            !unit.isActive ||
-            unit.activeOrder
-        ) {
+        if(!unit.isActive) {
             throw err(400, 'unit not capable of creating an order')
         }
 
         const master = await Master.findById(apt.master)
         if(!master) throw err(500, 'master could not be retreived')
 
+        const clientPreferences = master.clientPreferences.filter(preference => {
+            //@ts-ignore
+            if(client.preferences.includes(idToString(preference._id))) {
+                return true
+            }
+        })
+
         const order = await Order.create({
             master: apt.master,
-            clientPreferences: master.clientPreferences.filter(preference => {
-                //@ts-ignore
-                if(client.preferences.includes(idToString(preference._id))) {
-                    return true
-                }
-            }),
+            clientPreferences,
             client: client._id,
             origin: unit.address,
             dropOffAddress: unit.address,
@@ -231,18 +243,18 @@ async (req: Request<ClientOrderCreateI, {}, DriverAuthI>, res: Response) => {
             unit: unitNum,
             unitId: unitIdNum
         })
+        
+        await order.save()
 
         driver.activeOrders.push(order._id)
-        driver.orders.push(order._id)
-        client.orders.push(order._id)
-        apt.dequeueUnit(unitId)
-
-
-        await order.save()
+        //@ts-ignore 
+        client.activeOrders.push(order)
+        
         driver.save()
         client.save()
-
+        
         await apt.addOrderToUnit(unitId, order.id)
+        await apt.dequeueUnit(unitId)
 
         order.addEvent(
             'Driver created order',

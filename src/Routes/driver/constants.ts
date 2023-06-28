@@ -20,7 +20,9 @@ export const driverClientSelect = {
     lastName: 1,
     phoneNumber: 1,
     email: 1,
-    attachedUnitIds: 1
+    attachedUnitIds: 1,
+    activeOrders: 1,
+    preferences: 1
 }
 
 const orderDriversSelect = {

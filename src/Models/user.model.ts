@@ -79,6 +79,7 @@ export interface UserI extends UserIMethods {
     emailVerified: boolean
     attachedUnitIds: string[]
     preferences: string[]
+    activeOrders: Types.ObjectId[]
 }
 
 type UserModelT = Model<UserI, {}, UserIMethods>
@@ -152,6 +153,10 @@ const UserSchema = new Schema<UserI, UserModelT, UserIMethods>({
     pickUpAddresses: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Address'
+    }],
+    activeOrders: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Order'
     }],
     cards: [{
         type: String,
