@@ -82,7 +82,8 @@ export const handleDesiredServices = async (
     desiredServices: desiredServicesI[],
     masterId: string | Types.ObjectId
 ) => {
-    const desiredServiceIds = desiredServices.map(service => service.service.toString())
+    //@ts-ignore
+    const desiredServiceIds = desiredServices.map(service => service.service._id.toString())
     const master = await Master.findById(masterId)
     if(!master) throw 'unable to find master'
 

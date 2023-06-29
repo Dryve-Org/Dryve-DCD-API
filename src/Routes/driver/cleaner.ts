@@ -213,18 +213,17 @@ async (req: Request<{ clnId: string }, {}, DriverAuthI>, res: Response) => {
         const { clnId } = req.params
 
         const cleaner = await Cleaner.findById(clnId)
+            .select(driverCleanerSelect)
+            .populate(driverCleanerPopulate)
         
         if(!cleaner) throw 'invalid cleaner Id'
 
-        const activeOrders = await Order.find({
-            '_id': { '$in': cleaner.activeOrders },
-            'isDropOff': true,
+        const readyOrders = cleaner.activeOrders.filter(order => {
+            // @ts-ignore
+            return order.isDropOff
         })
-        .select(driverOrderSelect)
-        .populate(driverOrderPopulate)
-        
 
-        res.status(200).send(activeOrders)
+        res.status(200).send(readyOrders)
     } catch(e) {
         res.status(400).send(e)
     }

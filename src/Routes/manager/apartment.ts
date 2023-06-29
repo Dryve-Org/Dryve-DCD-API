@@ -1,17 +1,14 @@
 import express, { Request, Response } from 'express'
 import _ from 'lodash'
-import { Types } from 'mongoose'
 import { addAddress, getDistanceById } from '../../constants/location'
 import { managerAuth, ManagerAuthI } from '../../middleware/auth'
-import Address, { AddressDocT, AddressI } from '../../Models/address.model'
-import Apt, { AptBuildingI, AptI } from '../../Models/aparmtent/apartment.model'
-import Manager from '../../Models/manager.models'
-import User from '../../Models/user.model'
+import { AddressI } from '../../Models/address.model'
+import Apt from '../../Models/aparmtent/apartment.model'
 import ManagerR from './manager'
 import v from 'validator'
 import { AptToUnitI } from '../interface'
 import Cleaner from '../../Models/cleaner.model'
-import { err, idToString } from '../../constants/general'
+import { err, extractUnitId, idToString } from '../../constants/general'
 import SAP from '../../Models/ServicesAndProducts'
 
 const AptR = express.Router()
@@ -214,7 +211,6 @@ async (req: Request<{aptId: string}, {}, AddBuildings>, res: Response) => {
 })
 
 interface AddUnitI extends ManagerAuthI {
-    clientId?: string
     unit: string
     isActive: boolean
 }
@@ -294,7 +290,6 @@ async (req: Request<{
 
 interface AddClientToUnit extends ManagerAuthI {
     email: string
-    isActive?: boolean
 }
 
 /*
@@ -302,33 +297,25 @@ interface AddClientToUnit extends ManagerAuthI {
     * is active will default to false if not provided
 */
 AptR.put(
-'/apartment/:aptId/:bldId/:unitId/add_client',
+'/apartment/:unitId/add_client',
 managerAuth,
 async (req: Request<AptToUnitI, {}, AddClientToUnit>, res: Response) => {
     try {
-        const {
-            aptId,
-            bldId,
-            unitId
-        } = req.params
+        const { unitId } = req.params
 
-        const {
-            email,
-            isActive
-        } = req.body
+        const { email } = req.body
 
-        if(!v.isEmail(email)) throw 'invalid body'
-        if(isActive) {
-            if(typeof isActive !== 'boolean') throw 'invalid body'
-        }
+        if(!v.isEmail(email)) throw 'invalid email'
 
-        const apt = await Apt.findById(aptId)
+        const [ aptId ] = extractUnitId(unitId)
+
+        const apt = await Apt.findById({ aptId })
         if(!apt) throw 'invalid apartment Id'
 
-        const unit = apt.buildings.get(bldId)?.units.get(unitId)
-        if(!unit) throw 'unit does not exist'
+        const unitData = apt.getUnitId(unitId)
+        if(!unitData) throw 'unit does not exist'
 
-        apt.addClient(bldId, unitId, email, isActive)
+        apt.addClient(unitId, email)
             .then(() => {
                 res.status(200).send(apt)
             })
