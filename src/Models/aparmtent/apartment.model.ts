@@ -19,7 +19,7 @@ export interface UnitI {
     client?: Types.ObjectId
     isActive?: boolean
     address: Types.ObjectId
-    activeOrder: Types.ObjectId | null
+    activeOrders: Types.ObjectId[]
     /**
      * This is the unit's readable id that will be used
      * throughtout the this api
@@ -140,10 +140,8 @@ interface AptIMethods {
      * @return {Promise<AptDocT>} updated Apt document
     */
     addClient(
-        buildingId: string,
-        unitId: string,
+        unitId: UnitI['unitId'],
         email: string,
-        isActive?: boolean
     ): Promise<AddressDocT>
     
     /**
@@ -157,8 +155,8 @@ interface AptIMethods {
      * @return {Promise<AptDocT>} - updated Apt document
     */
     removeClient(
-        buildingId: string,
-        unitId: string
+        unitId: string,
+        email: string
     ): Promise<AddressDocT>
     
     /**
@@ -212,7 +210,8 @@ interface AptIMethods {
      * @return {Promise<AptDocT>} - updated Apt document
     */
     removeOrderToUnit(
-        unitId: string
+        unitId: string,
+        orderId: string
     ): Promise<AptDocT>
 
     /**
@@ -336,11 +335,11 @@ const AptSchema = new Schema<AptI, AptModelT, AptIMethods>(
                             type: Boolean,
                             default: false
                         },
-                        activeOrder: {
+                        activeOrders: [{
                             type: Schema.Types.ObjectId,
                             ref: 'Order',
                             nullable: true
-                        },
+                        }],
                         unitId: {
                             type: String,
                             required: true,
@@ -514,7 +513,7 @@ AptSchema.method<AptDocT>('addUnit', async function(
         isActive: false,
         queued: null,
         unitId: 'N/A',
-        activeOrder: null
+        activeOrders: []
     })
 
     await apt.save()
@@ -524,7 +523,7 @@ AptSchema.method<AptDocT>('addUnit', async function(
 AptSchema.method('addUnits', async function(
     this: AptDocT,
     buildingId: string,
-    unitIds: string[] // unit number not 'A01-001'
+    unitNums: string[] // unit number not 'A01-001'
 ) {
     const apt = this
 
@@ -537,7 +536,7 @@ AptSchema.method('addUnits', async function(
     const unitKeys = Array.from(building.units.keys())
     
     //if unit already exists throw
-    if(_.intersection(unitKeys, unitIds).length) throw {
+    if(_.intersection(unitKeys, unitNums).length) throw {
         message: 'one or more units already exists',
         status: 400
     }
@@ -550,10 +549,10 @@ AptSchema.method('addUnits', async function(
         message: 'unable to get building address',
         status: 500
     }
-    for(let unitId of unitIds) {
+    for(let unitNum of unitNums) {
         const unitAddress = {
             ...buildingAddress,
-            street_address_line_2: `unit ${ unitId }`
+            street_address_line_2: `unit ${ unitNum }`
         }
 
         const unitAddy = await addAddress(unitAddress)
@@ -564,13 +563,13 @@ AptSchema.method('addUnits', async function(
                 }
             })
 
-        apt.buildings.get(buildingId)?.units.set(unitId, {
+        apt.buildings.get(buildingId)?.units.set(unitNum, {
             address: unitAddy._id,
             isActive: false,
             client: undefined,
             queued: null,
-            unitId,
-            activeOrder: null
+            unitId: 'N/A',
+            activeOrders: []
         })
     }
 
@@ -585,20 +584,20 @@ AptSchema.method('addUnits', async function(
     return apt
 })
 
+//TODO: update this to create user if user doesn't exist and send email
 AptSchema.method('addClient', async function(
     this: AptDocT,
-    buildingId: string,
-    unitId: string,
+    unitId: UnitI['unitId'],
     email: string,
     isActive?: boolean
 ) {
     const apt = this
 
-    if(!v.isEmail(email)) throw err(400,'invalid body: email')
     if(typeof isActive === 'boolean') throw err(400, 'invalid body')
 
-    const unit = apt.buildings.get(buildingId)?.units.get(unitId)
-    if(!unit) throw err(400, 'unit does not exist')
+    const unitData = apt.getUnitId(unitId)
+    if(!unitData) throw err(400, 'unit does not exist')
+    const [ buildingId, , unit ] = unitData
 
     const client = await User.findOne({ email })
     if(!client) throw err(400, 'client does not exist')
@@ -611,21 +610,6 @@ AptSchema.method('addClient', async function(
             apt.name
         )
     }
-
-    //loop through each unit in each building to find the unit with the client
-    apt.buildings.forEach(building => {
-        building.units.forEach(unit => {
-            if(unit.client?.toString() === client._id.toString()) {
-                throw err(400, 'client already has a unit')
-            }
-        })
-    })
-
-    // if(
-    //     !idToString(client.pickUpAddresses).includes(unit.address.toString())
-    // ) {
-    //     client.pickUpAddresses.push(unit.address)
-    // }
 
     const clientAddresses = idToString(client.pickUpAddresses)
     if(!clientAddresses.includes(unit.address.toString())) {
@@ -645,27 +629,25 @@ AptSchema.method('addClient', async function(
     return apt
 })
 
+//update this
 AptSchema.method('removeClient', async function(
     this: AptDocT,
-    buildingId: string,
-    unitId: string
+    unitId: string,
+    email: string
 ){
     const apt = this
 
-    const unit = apt.buildings.get(buildingId)?.units
-        .get(unitId)
+    const unitData = apt.getUnitId(unitId)
+    if(!unitData) throw err(400, 'unit does not exist')
+    const [ buildingId, , unit ] = unitData
 
     if(!unit) throw err(400, 'unit does not exist')
 
-    if(!unit.client) throw err(400, 'client already does not exists')
-    if(unit?.activeOrder) throw err(400, 'order is currently in progress')
-
-    const client = await User.findById(unit.client)
+    const client = await User.findOne({ email })
     if(!client) throw err(400, 'client does not exist')
 
     unit.unitId && await client.removeUnitId(unit.unitId)
 
-    unit.client = undefined
     unit.isActive = false
 
     apt.buildings.get(buildingId)?.units.set(unitId, unit)
@@ -689,7 +671,9 @@ AptSchema.method('deactivateUnit', async function(
     if(apt.buildings.get(buildingId)) err(400, 'could not find building')
     if(!unit) throw err(400, 'could not find unit')
     if(!unit.client) throw err(400, 'client already does not exists')
-    if(unit.activeOrder) throw err(400, 'order is currently in progress')
+    if(
+        unit.activeOrders.length > 0
+    ) throw err(400, 'order is currently in progress')
 
     unit.isActive = true
 
@@ -714,7 +698,7 @@ AptSchema.method('addOrderToUnit', async function(
     if(!unit.client) throw err(400, 'client already does not exists')
     if(!unit.isActive) throw err(400, 'unit not active')
 
-    unit.activeOrder = orderId
+    unit.activeOrders.push(orderId)
     apt.buildings.get(bldNum)?.units.set(unitNum, unit)
 
     await apt.save()
@@ -724,7 +708,8 @@ AptSchema.method('addOrderToUnit', async function(
 
 AptSchema.method<AptDocT>('removeOrderToUnit', async function(
     this: AptDocT,
-    unitId: string
+    unitId: string,
+    orderId: string
 ){
     const apt = this
 
@@ -735,7 +720,7 @@ AptSchema.method<AptDocT>('removeOrderToUnit', async function(
     
     if(!unit) throw err(400, 'could not find unit')
 
-    unit.activeOrder = null
+    unit.activeOrders.filter(order => order.toString() !== orderId)
     apt.buildings.get(buildingId)?.units.set(unitId, unit)
 
     await apt.save()
@@ -784,10 +769,6 @@ AptSchema.methods.queueUnit = async function(
     const unitData = apt.getUnitId(unitId)
     if(!unitData) throw err(400, 'unable to find unitId')
     const [ buildingId, unitValue, unit ] = unitData
-
-    if(unit.activeOrder) {
-        throw err(409, 'Order already active')
-    }
 
     if(unit.queued) return apt
 

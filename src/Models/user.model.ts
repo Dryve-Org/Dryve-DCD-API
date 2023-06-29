@@ -253,7 +253,7 @@ UserSchema.methods.addUnitId = async function(
 
 UserSchema.methods.removeUnitId = async function(
     this: UserDocT,
-    unitId: string
+    unitId: UnitI["unitId"]
 ) {
     try {
         const user = this
@@ -261,6 +261,18 @@ UserSchema.methods.removeUnitId = async function(
         if(!user.attachedUnitIds.includes(unitId)) return user
     
         user.attachedUnitIds = user.attachedUnitIds.filter(id => id !== unitId)
+
+        const [ aptId ] = extractUnitId(unitId)
+        const apt = await Apt.findOne({ aptId })
+        if(!apt) throw err(400, 'apartment not found')
+
+        const unitData = apt.getUnitId(unitId)
+        if(!unitData) throw err(400, 'unit not found')
+        const [, , unit] = unitData
+
+        user.pickUpAddresses = user.pickUpAddresses.filter(address => {
+            return address.toString() !== unit.address.toString()
+        })
     
         await user.update({
             $pull: {

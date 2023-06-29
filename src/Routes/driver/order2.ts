@@ -9,7 +9,7 @@ import { isMatchingIds, noUnMatchingIds, servicesExist } from '../../constants/v
 import { driverAuth, DriverAuthI } from '../../middleware/auth'
 import Apt, { UnitI } from '../../Models/aparmtent/apartment.model'
 import Cleaner from '../../Models/cleaner.model'
-import Order from '../../Models/Order.model'
+import Order, { OrderDocT, OrderI } from '../../Models/Order.model'
 import User from '../../Models/user.model'
 import { AptToUnitI } from '../interface'
 import { driverAptSelect, driverCleanerPopulate, driverCleanerSelect, driverClientSelect, driverOrderPopulate, driverOrderSelect } from './constants'
@@ -175,12 +175,12 @@ async (req: Request<ClientOrderCreateI, {}, DriverAuthI>, res: Response) => {
         const client = await User.findOne(  
             {email: clientEmail},
             { 
-                ...driverClientSelect,
-                orders: 1  
+                ...driverClientSelect 
             }
         ).populate([
             {
                 path: 'activeOrders',
+                model: 'Order',
                 select: driverOrderSelect
             }
         ])
@@ -189,7 +189,9 @@ async (req: Request<ClientOrderCreateI, {}, DriverAuthI>, res: Response) => {
             throw err(400, 'client not attached to unit')
         }
 
-        if(client.activeOrders.length > 0) {
+        const activeOrders = client.activeOrders
+
+        if(activeOrders.length > 0) {
             client.activeOrders.forEach(order => {
                 //@ts-ignore
                 if(order.unitId === unitId) {
@@ -241,17 +243,17 @@ async (req: Request<ClientOrderCreateI, {}, DriverAuthI>, res: Response) => {
             },
             building: bldId,
             unit: unitNum,
-            unitId: unitIdNum
+            unitId: unitId
         })
         
         await order.save()
 
         driver.activeOrders.push(order._id)
-        //@ts-ignore 
-        client.activeOrders.push(order)
+        //@ts-ignore
+        client.activeOrders.push(order._id)
+        await client.save()
         
         driver.save()
-        client.save()
         
         await apt.addOrderToUnit(unitId, order.id)
         await apt.dequeueUnit(unitId)
@@ -279,12 +281,16 @@ async (req: Request<ClientOrderCreateI, {}, DriverAuthI>, res: Response) => {
  * This needs to be updated to unit id
 */
 orderR.delete(
-'/order/:unitId/cancel_order',
+'/order/:unitId/:orderId/cancel_order',
 driverAuth,
-async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
+async (req: Request<{
+    unitId: UnitI['unitId']
+    orderId: string
+}, {}, DriverAuthI>, res: Response) => {
     try {
         const {
-            unitId
+            unitId,
+            orderId
         } = req.params
         const { driver } = req.body
 
@@ -296,11 +302,11 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
 
         const unit = unitData[2]
         
-        if(!unit.activeOrder) {
+        if(!idToString(unit.activeOrders).includes(orderId)) {
             throw 'order already does not have an active order in this unit'
         }
 
-        const order = await Order.findById(unit.activeOrder)
+        const order = await Order.findById(orderId)
             .select(driverOrderSelect)
             .populate(driverOrderPopulate)
         
@@ -340,7 +346,7 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         client?.save()
         
         driver.removeActiveOrder(order.id)
-        await apt.removeOrderToUnit(order.unitId)
+        await apt.removeOrderToUnit(order.unitId, order.id)
 
         order.status = "Cancelled"
         order.closedTime = now()
@@ -624,7 +630,7 @@ async (req: Request<{ orderId: string }, {}, DriverAuthI>, res: Response) => {
             }
 
             order.orderClosed = true
-            await apt.removeOrderToUnit(order.unitId)
+            await apt.removeOrderToUnit(order.unitId, orderId)
                 .catch((e) => {
                     console.log(e)
                     res.status(500).send(`
@@ -635,6 +641,19 @@ async (req: Request<{ orderId: string }, {}, DriverAuthI>, res: Response) => {
 
         order.status = 'Complete'
         order.clientDropoffTime = now()
+
+        const client = await User.findById(
+            order.client,
+            {
+                activeOrders: 1
+            }
+        )
+        if(!client) {
+            console.error('Could not get client by validated Id')
+        } else {
+            client.activeOrders = client.activeOrders.filter(orderId => orderId.toString() !== order.id)
+            client.save()
+        }
 
         await order.save()
             .then(() => {

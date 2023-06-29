@@ -311,7 +311,10 @@ const OrderSchema = new Schema<OrderI, OrderModelT, OrderMethodsI>({
     userCard: {
         type: String,
     },
-    isDropOff: Boolean,
+    isDropOff: {
+        type: Boolean,
+        default: false
+    },
     orderPaidfor: {
         default: false,
         type: Boolean
