@@ -289,7 +289,9 @@ async (req: Request<{
 })
 
 interface AddClientToUnit extends ManagerAuthI {
-    email: string
+    email: string,
+    firstName: string,
+    lastName: string,
 }
 
 /*
@@ -303,9 +305,15 @@ async (req: Request<AptToUnitI, {}, AddClientToUnit>, res: Response) => {
     try {
         const { unitId } = req.params
 
-        const { email } = req.body
+        const { 
+            email,
+            firstName,
+            lastName,
+        } = req.body
 
         if(!v.isEmail(email)) throw 'invalid email'
+        if(!firstName) throw 'invalid first name'
+        if(!lastName) throw 'invalid last name'
 
         const [ aptId ] = extractUnitId(unitId)
 
@@ -315,7 +323,7 @@ async (req: Request<AptToUnitI, {}, AddClientToUnit>, res: Response) => {
         const unitData = apt.getUnitId(unitId)
         if(!unitData) throw 'unit does not exist'
 
-        apt.addClient(unitId, email)
+        apt.addClient(unitId, email, firstName, lastName)
             .then(() => {
                 res.status(200).send(apt)
             })
@@ -355,7 +363,7 @@ async (req: Request<AptToUnitI, {}, SetSAPsI>, res: Response) => {
         const apt = await Apt.findById(aptId)
         if(!apt) throw err(400, 'invalid apartment id')
 
-        apt.servicesAndProducts = sap._id
+        apt.servicesAndProducts = sap.id
 
         await apt.save()
 

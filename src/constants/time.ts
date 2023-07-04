@@ -21,7 +21,7 @@ export const dateToUnix = (date: string): number => {
  * @returns A function that takes a number and returns a string.
 */
 export const unixToDate = (unixDate: number) => {
-    const date = moment.unix(unixDate / 1000).format("DD/MM/YYYY")
+    const date = moment.unix(unixDate).format("DD/MM/YYYY")
     return date
 }
 

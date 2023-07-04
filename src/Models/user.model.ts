@@ -65,6 +65,9 @@ export interface UserI extends UserIMethods {
     password: string
     phoneNumber: string
     dob: number
+    /**
+     * this is the address
+     */
     address: Types.ObjectId
     pickUpAddresses: Types.ObjectId[]
     stripeId: string
@@ -130,7 +133,6 @@ const UserSchema = new Schema<UserI, UserModelT, UserIMethods>({
     },
     dob: {
         type: Number,
-        required: true,
         validate(value: number) {
             if(!isUnixDate(value)) {
                 throw new Error("Not in unix format")

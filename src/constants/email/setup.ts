@@ -40,7 +40,7 @@ export const invoiceEmail = async (
         const options = {
             from: "TheDryve@outlook.com",
             to,
-            subject: "Invoice From Dryve",
+            subject: "Gourmade Laundry Invoice",
             text: `
                 ${ unixToDate(date) }
                 Hello ${ firstName },
