@@ -323,7 +323,12 @@ async (req: Request<AptToUnitI, {}, AddClientToUnit>, res: Response) => {
         const unitData = apt.getUnitId(unitId)
         if(!unitData) throw 'unit does not exist'
 
-        apt.addClient(unitId, email, firstName, lastName)
+        apt.addClient(
+            unitId, 
+            email, 
+            firstName, 
+            lastName
+        )
             .then(() => {
                 res.status(200).send(apt)
             })

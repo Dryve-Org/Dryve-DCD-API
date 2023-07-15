@@ -1,6 +1,10 @@
 import moment from 'moment'
 import validator from 'validator'
 
+export const unixDay = 86400
+export const unixMonth = 2592000
+export const unixYear = 31536000
+
 //validate if unix date
 export const unixDateFormatter = (value: string): string => { 
     return moment.unix(parseInt(value)).format("MM/DD/YYYY hh:mm a")

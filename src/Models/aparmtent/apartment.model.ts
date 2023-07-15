@@ -9,7 +9,8 @@ import { generatePassword, idToString } from '../../constants/general'
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
 import { sendEmailVerify } from '../../constants/email/setup'
 import { activateUnit, generateId, getBuilding, updateMaster } from './methods'
-import { now } from '../../constants/time'
+import { now, unixDay } from '../../constants/time'
+import UnitVerifySession from '../sessions/unitVerify.model'
 
 export type AptDocT = mongoose.Document<unknown, any, AptI> & AptI & {
     _id: mongoose.Types.ObjectId
@@ -600,15 +601,17 @@ AptSchema.method('addClient', async function(
 
     const unitData = apt.getUnitId(unitId)
     if(!unitData) throw err(400, 'unit does not exist')
-    const [ buildingId, , unit ] = unitData
+    const [ bldNum, unitNum, unit ] = unitData
 
     let client = await User.findOne({ email })
+    const password = generatePassword()
+
     if(!client) {
         const newClient = new User({
             email,
             firstName,
             lastName,
-            password: generatePassword(),
+            password,
             phoneNumber: '0000000000',
             created: now()
         })
@@ -619,11 +622,22 @@ AptSchema.method('addClient', async function(
     if(client.attachedUnitIds.includes(unitId)) {
         return apt
     }
-        
+
+    const unitVerifySession = new UnitVerifySession({
+        unitId,
+        userEmail: email,
+        userPassword: password,
+        unitNum,
+        bldNum,
+        aptName: apt.name
+    })
+
+    await unitVerifySession.save()
+
     sendEmailVerify(
         client.email,
         client.firstName,
-        `${process.env.HOST}/client/verify_email/${ client.id }`,
+        `${process.env.HOST}/client/verify_unit/${ unitVerifySession.id }`,
         apt.name
     )
 
@@ -639,7 +653,7 @@ AptSchema.method('addClient', async function(
     unit.isActive = true
     //unit already have a client then they must be removed first
     /* Updating the unit with the client id and isActive. */
-    apt.buildings.get(buildingId)?.units.set(unitId, unit)
+    apt.buildings.get(bldNum)?.units.set(unitNum, unit)
 
     await apt.save()
     return apt
