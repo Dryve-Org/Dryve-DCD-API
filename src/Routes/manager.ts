@@ -139,15 +139,15 @@ managerRouter.post('/order/create', managerAuth, async (req: Request<{}, {}, Man
 
         //desired services must be provide
         //before going to cleaners
-        if(!isDropOff && desiredServices !== undefined) {
-            const {
-                total
-            } = await handleDesiredServices(desiredServices)
+        // if(!isDropOff && desiredServices !== undefined) {
+        //     const {
+        //         total
+        //     } = await handleDesiredServices(desiredServices)
 
-            order.serviceCost = total
-            order.orderTotal = total
-            order.desiredServices = desiredServices
-        }
+        //     order.serviceCost = total
+        //     order.orderTotal = total
+        //     order.desiredServices = desiredServices
+        // }
 
         //setting order data
         order.client = user._id
