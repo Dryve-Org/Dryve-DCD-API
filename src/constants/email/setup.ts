@@ -40,7 +40,7 @@ export const invoiceEmail = async (
         const options = {
             from: "TheDryve@outlook.com",
             to,
-            subject: "Invoice From Dryve",
+            subject: "Gourmade Laundry Invoice",
             text: `
                 ${ unixToDate(date) }
                 Hello ${ firstName },
@@ -91,5 +91,30 @@ export const sendEmailVerify = async (
         await transporter.sendMail(options)
     } catch(e) {
         console.error(`unable to verify email for ${ to }`, e)
+    }
+}
+
+export const sendFirstPassword = async (
+    to: string,
+    firstName: string,
+    password: string
+) => {
+    try {
+        const options = {
+            from: "TheDryve@outlook.com",
+            to,
+            subject: `Your Gourmade Laundry Password`,
+            text: `
+                Hello ${ firstName },
+                username/email: ${ to }
+                Here is your password for Gourmade Laundry: ${ password }
+
+                Thank you!
+            `
+        }
+
+        await transporter.sendMail(options)
+    } catch(e) {
+        console.error(`unable to send first password for ${ to }`, e)
     }
 }

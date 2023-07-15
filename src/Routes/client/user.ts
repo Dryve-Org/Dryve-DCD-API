@@ -11,6 +11,7 @@ import _, { pick } from 'lodash'
 import Order, { OrderstatusT } from '../../Models/Order.model'
 import { err, extractUnitId } from '../../constants/general'
 import Apt from '../../Models/aparmtent/apartment.model'
+import UnitVerifySession from '../../Models/sessions/unitVerify.model'
 
 const userRouter = express.Router()
 
@@ -117,21 +118,29 @@ userRouter.post('/login', async (req: Request<{}, {}, LoginBodyI>, res: Response
     }
 })
 
-userRouter.post(
-'/verify_email/:userId',
-async (req: Request<{ userId: string }, {}, {}>, res: Response) => {
+userRouter.get(
+'/verify_unit/:sessionId',
+async (req: Request<{ sessionId: string }, {}, {}>, res: Response) => {
     try {
-        const { userId } = req.params
+        const { sessionId } = req.params
 
-        const user = await User.findById(userId)
+        const sessionData = await UnitVerifySession.findById(sessionId)
         
-        if(!user) {
-            throw 'invalid user Id'
+        if(!sessionData) {
+            throw 'invalid session Id'
         }
 
-        user.emailVerified = true
+        await sessionData.verify()
 
-        res.status(200).send(`${ user.email } is verified`)
+        res.status(200).send(`
+            ${ sessionData.userEmail } is verified to unit.
+            Complex Name: ${ sessionData.aptName }
+            building: ${ sessionData.bldNum },
+            Unit: ${ sessionData.unitNum },
+            UnitId: ${ sessionData.unitId },
+        `)
+
+        UnitVerifySession.findByIdAndDelete(sessionId)
     } catch(e) {
         res.status(400).send(e)
     }
@@ -285,27 +294,6 @@ userRouter.get('/retreive/:field', auth, async (req: Request<getFieldParams, {},
         throw 'invalid parameter'
     } catch(e: any) {
         res.status(400).send(e)
-    }
-})
-
-userRouter.post(
-'/unitId/add/:unitId',
-auth,
-async (req: Request<{ unitId: string }, {}, authBodyI>, res: Response) => {
-    try {
-        const { unitId } = req.params
-        const { user } = req.body
-
-        const client = await user.addUnitId(unitId)
-
-        res.status(200).send(client)
-    } catch(e: any) {
-        if(e.status && e.message) {
-            res.status(e.status).send(e.message)
-            return
-        } else {
-            res.status(400).send(e)
-        }
     }
 })
 

@@ -134,6 +134,8 @@ async (req: Request<{aptId: string, bldId: string, unitId: string}, {}, aptManAu
 
 interface assignUnitI extends aptManAuthI {
     clientEmail: string
+    clientFirstName: string
+    clientLastName: string
 }
 
 /**
@@ -147,8 +149,12 @@ aptManAuth,
 async (req: Request<{ unitId: UnitI['unitId'] }, {}, assignUnitI>, res: Response) => {
     try {
         const { unitId } = req.params
-        const { clientEmail } = req.body
-        const { aptMan } = req.body
+        const { 
+            aptMan,
+            clientEmail,
+            clientFirstName,
+            clientLastName
+        } = req.body
 
         const [ aptId ] = extractUnitId(unitId)
 
@@ -161,9 +167,12 @@ async (req: Request<{ unitId: UnitI['unitId'] }, {}, assignUnitI>, res: Response
             return res.status(401).send('Unauthorized to access this apartment')
         }
 
-        
-
-        await apt.addClient(unitId, clientEmail)
+        await apt.addClient(
+            unitId, 
+            clientEmail,
+            clientFirstName,
+            clientLastName
+        )
 
         res.send('Unit assigned')
     } catch(e) {

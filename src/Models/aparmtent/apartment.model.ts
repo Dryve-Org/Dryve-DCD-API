@@ -5,11 +5,12 @@ import { addAddress } from '../../constants/location'
 import Address, { AddressDocT, AddressI } from '../address.model'
 import User from '../user.model'
 import v from 'validator'
-import { idToString } from '../../constants/general'
+import { generatePassword, idToString } from '../../constants/general'
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
 import { sendEmailVerify } from '../../constants/email/setup'
 import { activateUnit, generateId, getBuilding, updateMaster } from './methods'
-import { now } from '../../constants/time'
+import { now, unixDay } from '../../constants/time'
+import UnitVerifySession from '../sessions/unitVerify.model'
 
 export type AptDocT = mongoose.Document<unknown, any, AptI> & AptI & {
     _id: mongoose.Types.ObjectId
@@ -137,11 +138,15 @@ interface AptIMethods {
      * @param {string} buildingId - string - building identifier
      * @param {String} unitId - strings - unit identifier
      * @param {string} email - string - will be validated
+     * @param {string} firstName - string - will be validated
+     * @param {string} lastName - string - will be validated
      * @return {Promise<AptDocT>} updated Apt document
     */
     addClient(
         unitId: UnitI['unitId'],
         email: string,
+        firstName: string,
+        lastName: string
     ): Promise<AddressDocT>
     
     /**
@@ -589,27 +594,52 @@ AptSchema.method('addClient', async function(
     this: AptDocT,
     unitId: UnitI['unitId'],
     email: string,
-    isActive?: boolean
+    firstName: string,
+    lastName: string,
 ) {
     const apt = this
 
-    if(typeof isActive === 'boolean') throw err(400, 'invalid body')
-
     const unitData = apt.getUnitId(unitId)
     if(!unitData) throw err(400, 'unit does not exist')
-    const [ buildingId, , unit ] = unitData
+    const [ bldNum, unitNum, unit ] = unitData
 
-    const client = await User.findOne({ email })
-    if(!client) throw err(400, 'client does not exist')
+    let client = await User.findOne({ email })
+    const password = generatePassword()
 
-    if(!client.emailVerified) {
-        sendEmailVerify(
-            client.email,
-            client.firstName,
-            `${process.env.HOST}/client/verify_email/${ client.id }`,
-            apt.name
-        )
+    if(!client) {
+        const newClient = new User({
+            email,
+            firstName,
+            lastName,
+            password,
+            phoneNumber: '0000000000',
+            created: now()
+        })
+
+        client = await newClient.save()
     }
+
+    if(client.attachedUnitIds.includes(unitId)) {
+        return apt
+    }
+
+    const unitVerifySession = new UnitVerifySession({
+        unitId,
+        userEmail: email,
+        userPassword: password,
+        unitNum,
+        bldNum,
+        aptName: apt.name
+    })
+
+    await unitVerifySession.save()
+
+    sendEmailVerify(
+        client.email,
+        client.firstName,
+        `${process.env.HOST}/client/verify_unit/${ unitVerifySession.id }`,
+        apt.name
+    )
 
     const clientAddresses = idToString(client.pickUpAddresses)
     if(!clientAddresses.includes(unit.address.toString())) {
@@ -617,13 +647,13 @@ AptSchema.method('addClient', async function(
     }
 
     await client.save()
-    unit.unitId && client.addUnitId(unit.unitId)
+    //client will be added after email is verified
+    // unit.unitId && client.addUnitId(unit.unitId)
 
-    unit.client = client._id
-    unit.isActive = isActive ? isActive : false
+    unit.isActive = true
     //unit already have a client then they must be removed first
     /* Updating the unit with the client id and isActive. */
-    apt.buildings.get(buildingId)?.units.set(unitId, unit)
+    apt.buildings.get(bldNum)?.units.set(unitNum, unit)
 
     await apt.save()
     return apt

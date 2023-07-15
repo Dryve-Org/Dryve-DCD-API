@@ -296,15 +296,15 @@ async (req: Request<{userId: string}, {}, CreateOrderI>, res: Response) => {
             throw 'invalid cleaner Id'
         }
 
-        if(desiredServices.length) {
-            const validSvs = await servicesExist(
-                desiredServices.map(svs => svs.service)
-            )
+        // if(desiredServices.length) {
+        //     const validSvs = await servicesExist(
+        //         desiredServices.map(svs => svs.service)
+        //     )
 
-            if(!validSvs) {
-                throw 'invalid desired services'
-            }
-        }
+        //     if(!validSvs) {
+        //         throw 'invalid desired services'
+        //     }
+        // }
 
         const order = new Order({
             client: user._id,
