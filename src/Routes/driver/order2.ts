@@ -281,7 +281,7 @@ async (req: Request<ClientOrderCreateI, {}, DriverAuthI>, res: Response) => {
  * This needs to be updated to unit id
 */
 orderR.delete(
-'/order/:unitId/:orderId/cancel_order',
+'/order/:orderId/cancel_order',
 driverAuth,
 async (req: Request<{
     unitId: UnitI['unitId']
@@ -289,21 +289,12 @@ async (req: Request<{
 }, {}, DriverAuthI>, res: Response) => {
     try {
         const {
-            unitId,
             orderId
         } = req.params
         const { driver } = req.body
 
-        const apt = await getAPtByUnitId(unitId)
-        if(!apt) throw 'invalid apartment id'
-
-        const unitData = apt.getUnitId(unitId)
-        if(!unitData) throw 'invalid unit id'
-
-        const unit = unitData[2]
-        
-        if(!idToString(unit.activeOrders).includes(orderId)) {
-            throw 'order already does not have an active order in this unit'
+        if(!idToString(driver.activeOrders).includes(orderId)) {
+            throw 'order is not handled by this driver'
         }
 
         const order = await Order.findById(orderId)
@@ -311,22 +302,26 @@ async (req: Request<{
             .populate(driverOrderPopulate)
         
         if(!order) throw 'invalid order id'
-        
+
+        const apt = await getAPtByUnitId(order.unitId)
+        if(!apt) throw 'invalid apartment id'
+
+        const unitData = apt.getUnitId(order.unitId)
+        if(!unitData) throw 'invalid unit id'
+
         const client = await User.findById(order.client)
         if(!client) {
             console.error('client should exist undoubtably here')
+            throw 'client should exist undoubtably here'
         }
 
-        /* This is checking if the order was created by the driver. If it was not, then the driver is
-        not authorized to cancel the order. */
-        if(
-            order.createdBy.userType !== 'Driver' ||
-            order.createdBy.userTypeId.toString() !== driver.id
-        ) {
-            throw 'not authorized to cancel this order'
+        if(client.orders) {
+            client.orders = client.orders.filter(odrId => odrId.toString() !== order.id)
+            client.activeOrders = client.orders.filter(odrId => odrId.toString() !== order.id)
         }
 
         const validStatuses = [
+            "Cancelled",
             "Driver To Cleaner",
             "Clothes To Cleaner",
             "Task Posted Dropoff",
@@ -339,11 +334,7 @@ async (req: Request<{
             throw 'Cannot cancel order at this point'
         }
 
-        const clientOrders = client?.orders
-        if(clientOrders) {
-            client.orders = clientOrders.filter(odrId => odrId.toString() !== order.id)
-        }
-        client?.save()
+        
         
         driver.removeActiveOrder(order.id)
         await apt.removeOrderToUnit(order.unitId, order.id)
@@ -352,13 +343,15 @@ async (req: Request<{
         order.closedTime = now()
         order.orderClosed = true
 
-        order.save()
+        await order.save()
             .then(() => {
                 res.status(200).send(order)
             })
             .catch(() => {
                 res.status(500).send('something went wrong saving order.')
             })
+
+        client?.save()
 
         order.addEvent(
             'Driver cancelled order',

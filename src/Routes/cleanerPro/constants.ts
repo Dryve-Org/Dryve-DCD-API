@@ -90,7 +90,7 @@ export const CleanerProCleanerPopulate = [
  * Populating the activeOrder field in the unit model. 
 */
 const populateUnitOrder = {
-    path: 'buildings.$*.units.$*.activeOrder',
+    path: 'buildings.$*.units.$*.activeOrders',
     model: 'Order',
     select: CleanerProOrderSelect,
     populate: CleanerProOrderPopulate

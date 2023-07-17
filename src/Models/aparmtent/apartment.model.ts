@@ -669,7 +669,7 @@ AptSchema.method('removeClient', async function(
 
     const unitData = apt.getUnitId(unitId)
     if(!unitData) throw err(400, 'unit does not exist')
-    const [ buildingId, , unit ] = unitData
+    const [ bldnum, unitNum, unit ] = unitData
 
     if(!unit) throw err(400, 'unit does not exist')
 
@@ -680,7 +680,7 @@ AptSchema.method('removeClient', async function(
 
     unit.isActive = false
 
-    apt.buildings.get(buildingId)?.units.set(unitId, unit)
+    apt.buildings.get(bldnum)?.units.set(unitNum, unit)
     
     await apt.save()
     return apt
@@ -746,12 +746,15 @@ AptSchema.method<AptDocT>('removeOrderToUnit', async function(
     const unitData = apt.getUnitId(unitId)
     if(!unitData) throw err(400, 'could not find unit')
 
-    const [,buildingId, unit] = unitData
+    const [bldnum, unitnum, unit] = unitData
     
     if(!unit) throw err(400, 'could not find unit')
 
-    unit.activeOrders.filter(order => order.toString() !== orderId)
-    apt.buildings.get(buildingId)?.units.set(unitId, unit)
+    unit.activeOrders = unit
+        .activeOrders
+        .filter(order => order.toString() !== orderId)
+
+    apt.buildings.get(bldnum)?.units.set(unitnum, unit)
 
     await apt.save()
     return apt
