@@ -289,6 +289,8 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
         const unitsMap = apt.buildings.get(bldId)?.units
         if(!unitsMap) throw 'invalid params'
 
+        console.log(unitsMap)
+
         unitsMap
             .forEach((unit, key) => {
                 if(!unit.isActive) {
