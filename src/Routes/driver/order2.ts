@@ -387,6 +387,38 @@ async (req: Request<{}, {}, DriverAuthI>, res: Response) => {
     }
 })
 
+interface GetOrdersI extends DriverAuthI {
+    orderIds: string[]
+}
+
+orderR.get(
+'/order/orders',
+driverAuth,
+async (req: Request<{}, {}, GetOrdersI>, res: Response) => {
+    try {
+        const { 
+            driver,
+            orderIds
+        } = req.body
+
+        const orders = await Order.find({
+            _id: { $in: orderIds }
+        })
+            .select(driverOrderSelect)
+            .populate(driverOrderPopulate)
+        
+        if(!orders) throw 'orders not found'
+
+        const authOrdersByMaster = orders.filter(odr => {
+            return driver.masters.includes(odr.master)
+        })
+
+        res.status(200).send(authOrdersByMaster)
+    } catch(e) {
+        res.status(400).send(e)
+    }
+})
+
 orderR.get(
 '/order/:orderId',
 driverAuth,
