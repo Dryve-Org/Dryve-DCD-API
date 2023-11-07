@@ -1,3 +1,5 @@
+import User from "../../Models/user.model"
+
 export const driverOrderSelect = {
     orderTotal: 0,
     serviceCost: 0,
@@ -103,7 +105,7 @@ const populateUnitAddress = {
  * Populating the activeOrder field in the unit model. 
 */
 const populateUnitOrder = {
-    path: 'buildings.$*.units.$*.activeOrder',
+    path: 'buildings.$*.units.$*.activeOrders',
     model: 'Order',
     populate: driverOrderPopulate,
     select: driverOrderSelect
@@ -115,7 +117,8 @@ const populateUnitClient = {
     select: {
         firstName: 1,
         lastName: 1,
-        phoneNumber: 1
+        phoneNumber: 1,
+        email: 1,
     }
 }
 
@@ -142,5 +145,16 @@ export const driverAptSelect = {
     unitIndex: 0,
     paidFor: 0,
     createdBy: 0
+}
+
+export const clientsInUnit = async (unitId: string) => {
+    return await User.find(
+            {
+                attachedUnitIds: {
+                    $in: [unitId]
+                }
+            },
+            driverClientSelect
+        )
 }
     

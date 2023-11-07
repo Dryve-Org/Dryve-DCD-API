@@ -5,7 +5,8 @@ import Apt, { AptDocT, AptI } from '../../Models/aparmtent/apartment.model'
 import Driver from '../../Models/driver.model'
 import { AptToUnitI } from '../interface'
 import AptR from '../manager/apartment'
-import { driveAptPopulateToUnit, driverAptPopulate, driverAptSelect } from './constants'
+import { clientsInUnit, driveAptPopulateToUnit, driverAptPopulate, driverAptSelect, driverClientSelect } from './constants'
+import User from '../../Models/user.model'
 
 const aptR = express.Router()
 
@@ -31,7 +32,8 @@ const populateUnitClient = {
     select: {
         firstName: 1,
         lastName: 1,
-        phoneNumber: 1
+        phoneNumber: 1,
+        email: 1
     }
 }
 
@@ -52,18 +54,9 @@ const sensitive = {
 */
 const populateUnitOrder = [
     {
-        path: 'buildings.$*.units.$*.activeOrder',
+        path: 'buildings.$*.units.$*.activeOrders',
         model: 'Order',
         populate: [
-            {
-                path: 'client',
-                model: 'User',
-                select: {
-                    firstName: 1,
-                    lastName: 1,
-                    phoneNumber: 1
-                }
-            },
             {
                 path: 'cleaner',
                 model: 'Cleaner',
@@ -218,7 +211,16 @@ async (req: Request<{unitId: string}, {}, DriverAuthI>, res: Response) => {
 
         const [,, unit] = unitData
 
-        res.status(200).send(unit)
+        const clients = await clientsInUnit(unit.unitId)
+        
+        //@ts-ignore
+        unit.clients = clients
+
+        res.status(200).send({
+            //@ts-ignore
+            ...unit._doc,
+            clients
+        })
     } catch(e: any) {
         if(e.status && e.message) {
             res.status(e.status).send(e.message)
@@ -286,6 +288,8 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
 
         const unitsMap = apt.buildings.get(bldId)?.units
         if(!unitsMap) throw 'invalid params'
+
+        console.log(unitsMap)
 
         unitsMap
             .forEach((unit, key) => {

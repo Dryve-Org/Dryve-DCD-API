@@ -11,10 +11,9 @@ app.use(express.json())
 app.use(express.urlencoded())
 app.use(cors())
 
-if(process.env.ATLAS_URI) {
-    mongoose.connect(process.env.ATLAS_URI,(err) => {
-        if (err) {    
-            console.log(err) 
+if(process.env?.ATLAS_URI) {
+    mongoose.set('strictQuery', false).connect(process.env.ATLAS_URI, (err) => {
+        if (err) {
             throw {
                 statusCode: 500,
                 message: "server error: database"
@@ -22,6 +21,8 @@ if(process.env.ATLAS_URI) {
         }   
         console.log("Connected successfully to database") 
     })
+
+    mongoose.set('strictQuery', true)
 }
 
 import Routes from './Routes'

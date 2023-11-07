@@ -32,6 +32,7 @@ async (req: Request<{}, {}, DriverLoginI>, res: Response) => {
         const validPassword = await bcrypt.compare(password, user.password)
         if(!validPassword) {
             res.status(401).send(genericError)
+            
             return
         }
 
