@@ -93,44 +93,45 @@ async (req: Request<AptParams, {}, aptManAuthI>, res: Response) => {
  * @route: GET /aptMan/apt/:aptId/:bldId/:unitId
  * @access: private
 */
-AptR.get(
-'/:aptId/:bldId/:unitId',
-aptManAuth,
-async (req: Request<{aptId: string, bldId: string, unitId: string}, {}, aptManAuthI>, res: Response) => {
-    try {
-        const { aptId, bldId, unitId } = req.params
-        const { aptMan } = req.body
+//update
+// AptR.get(
+// '/:aptId/:bldId/:unitId',
+// aptManAuth,
+// async (req: Request<{aptId: string, bldId: string, unitId: string}, {}, aptManAuthI>, res: Response) => {
+//     try {
+//         const { aptId, bldId, unitId } = req.params
+//         const { aptMan } = req.body
         
-        if(!idToString(aptMan.attachedApts).includes(aptId)) {
-            return res.status(400).send('Unauthorized')
-        }
+//         if(!idToString(aptMan.attachedApts).includes(aptId)) {
+//             return res.status(400).send('Unauthorized')
+//         }
         
-        const apt = await Apt.findById(aptId)
-        if(!apt) {
-            return res.status(400).send('Invalid apartment')
-        }
+//         const apt = await Apt.findById(aptId)
+//         if(!apt) {
+//             return res.status(400).send('Invalid apartment')
+//         }
 
-        const unit = apt.getUnit(bldId, unitId)
+//         const unit = apt.getUnit(bldId, unitId)
 
-        const address = await Address.findById(unit.address)
-        if(!address) {
-            return res.status(400).send('Invalid unit')
-        }
+//         const address = await Address.findById(unit.address)
+//         if(!address) {
+//             return res.status(400).send('Invalid unit')
+//         }
 
-        if (unit.client) {
-            const client = await User.findById(unit.client, ClientSelect)
-            if(!client) {
-                return res.status(400).send('Invalid unit')
-            }
-            //@ts-ignore
-            unit.client = client
-        }
+//         if (unit.client) {
+//             const client = await User.findById(unit.client, ClientSelect)
+//             if(!client) {
+//                 return res.status(400).send('Invalid unit')
+//             }
+//             //@ts-ignore
+//             unit.client = client
+//         }
         
-        res.send(unit)
-    } catch(e) {
-        res.status(400).send('Invalid inputs')
-    }
-})
+//         res.send(unit)
+//     } catch(e) {
+//         res.status(400).send('Invalid inputs')
+//     }
+// })
 
 interface assignUnitI extends aptManAuthI {
     clientEmail: string

@@ -1,6 +1,9 @@
 import { err } from "../../constants/general"
+import { stripe } from "../../constants/moneyHandling"
 import Master from "../master"
+import User, { UserDocT, UserI } from "../user.model"
 import { AptDocT } from "./apartment.model"
+import v from 'validator'
 
 /**
  * get building
@@ -39,7 +42,6 @@ export async function activateUnit(this: AptDocT,
     
     if(apt.buildings.get(buildingId)) err(400, `could not find building ${buildingId}`)
     if(!unit) throw err(400, `could not find unit ${unitId}`)
-    if(!unit.client) throw err(400, `there is no client in unit ${unitId}`)
     if(unit.isActive) throw err(400, `unit ${unitId} is already active`)
 
     unit.isActive = true
@@ -104,4 +106,76 @@ export async function updateMaster(
 
     return apt
 }
+
+export async function addSubscription(
+    this: AptDocT,
+    unitId: string,
+    subscriptionId: string,
+    /**
+     * this alse can be a user email
+     */
+    clientId: string,
+    bagQuantity: number
+) {
+    const apt = this
+    const unitData = apt.getUnitId(unitId)
+    if(!unitData) throw err(400, 'unit does not exist')
+
+    const [buildingId, unitNum, unit] = unitData
+
+    
+    
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+    if(!subscription || !subscription.status) throw err(400, 'subscription does not exist')
+    
+    let client: any
+
+    if(v.isEmail(clientId)) {
+        client = await User.findOne({ email: clientId })
+    } else {
+        client = await User.findById(clientId.toString())
+    }
+    
+    if(!client || client === null) throw err(400, 'client does not exist')
+
+    if(unit.subscriptions.filter(sub => sub.id === subscriptionId || sub.client.toString() === client.id).length > 0) {
+        throw err(400, 'cannot add subscription to unit because it already exists or client already has subscription')
+    }
+
+    if(subscription.customer !== client.stripeId) {
+        throw err(400, `${ client.firstName } ${ client.lastName } does not own subscription ${ subscriptionId }`)
+    }
+
+    let updateClient = false
+
+    if(!client.attachedUnitIds.includes(unitId)) {
+        client.attachedUnitIds.push(unitId)
+        updateClient = true
+    }
+
+    if(!client.subscriptions.filter((sub: any) => sub.id === subscription.id)) {
+        client.subscriptions.push({
+            id: subscription.id,
+            status: subscription.status,
+            unitId: unitId,
+            bagQuantity
+        })
+        updateClient = true
+    }
+    
+    unit.subscriptions.push({
+        id: subscription.id,
+        client: client._id,
+        status: subscription.status,
+        bagQuantity
+    })
+
+    apt.buildings.get(buildingId)?.units.set(unitNum, unit)
+
+    await apt.save()
+    client.save()
+
+    return apt.buildings.get(buildingId)?.units.get(unitNum)
+}
+
 

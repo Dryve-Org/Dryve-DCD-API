@@ -18,9 +18,15 @@ export const numberToDollars = (num: number) => num / 100
  * This function creates a stripe customer with the given email address and returns the customer
  * object.
  * @param {string} email - string
+ * @param {string} firstName - string
+ * @param {string} lastName - string
  * @returns The customer object
 */
-export const createStripeCustomer = async (email: string) => {
+export const createStripeCustomer = async (
+    email: string,
+    firstName: string,
+    lastName: string
+) => {
     if(!validator.isEmail(email)) {
         throw {
             statusCode: 400,
@@ -28,7 +34,10 @@ export const createStripeCustomer = async (email: string) => {
         }
     }
 
-    const customer = await stripe.customers.create({ email })
+    const customer = await stripe.customers.create({ 
+        email,
+        name: `${firstName} ${lastName}`
+    })
 
     return customer
 }
