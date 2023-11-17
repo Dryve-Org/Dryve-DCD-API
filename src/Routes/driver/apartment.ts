@@ -26,16 +26,16 @@ const populateUnitAddress = {
 /**  
  * This is a mongoose populate object. It is used to populate the client field in the unit model. 
 */
-const populateUnitClient = {
-    path: 'buildings.$*.units.$*.client',
-    model: 'User',
-    select: {
-        firstName: 1,
-        lastName: 1,
-        phoneNumber: 1,
-        email: 1
-    }
-}
+// const populateUnitClient = {
+//     path: 'buildings.$*.units.$*.client',
+//     model: 'User',
+//     select: {
+//         firstName: 1,
+//         lastName: 1,
+//         phoneNumber: 1,
+//         email: 1
+//     }
+// }
 
 /**
  * What the Driver should not see in apartment order data
@@ -276,7 +276,6 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
             .populate([
                 populateBldAddress,
                 populateUnitAddress,
-                populateUnitClient,
                 {
                     path: 'address',
                     model: 'Address'
@@ -320,7 +319,6 @@ async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
             .populate([
                 populateBldAddress,
                 populateUnitAddress,
-                populateUnitClient,
                 ...populateUnitOrder,
                 {
                     path: 'address',
