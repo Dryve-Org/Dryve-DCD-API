@@ -8,7 +8,7 @@ import v from 'validator'
 import { generatePassword, idToString } from '../../constants/general'
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
 import { sendEmailVerify } from '../../constants/email/setup'
-import { activateUnit, addSubscription, generateId, getBuilding, updateMaster } from './methods'
+import { activateUnit, addSubscription, checkAllSubscriptions, generateId, getBuilding, updateMaster } from './methods'
 import { now, unixDay } from '../../constants/time'
 import UnitVerifySession from '../sessions/unitVerify.model'
 import Stripe from 'stripe'
@@ -210,6 +210,13 @@ interface AptIMethods {
         buildingId: string,
         unitId: string
     ): Promise<AptDocT>
+        
+    /**
+     * Check all subscriptions
+     * 
+     * @return {Promise<void>}
+    */
+    checkAllSubscriptions(): Promise<void>
     
     /**
      * Deactivate client to an apartment unit
@@ -730,6 +737,8 @@ AptSchema.method('removeClient', async function(
 AptSchema.method('addSubscription', addSubscription)
 
 AptSchema.method('activateUnit', activateUnit)
+
+AptSchema.method('checkAllSubscriptions', checkAllSubscriptions)
 
 AptSchema.method('deactivateUnit', async function(
     this: AptDocT,

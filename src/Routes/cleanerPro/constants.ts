@@ -99,16 +99,16 @@ const populateUnitOrder = {
 /**  
  * This is a mongoose populate object. It is used to populate the client field in the unit model. 
 */
-const populateUnitClient = {
-    path: 'buildings.$*.units.$*.client',
-    model: 'User',
-    select: {
-        firstName: 1,
-        lastName: 1,
-        phoneNumber: 1,
-        preferences: 1,
-    }
-}
+// const populateUnitClient = {
+//     path: 'buildings.$*.units.$*.client',
+//     model: 'User',
+//     select: {
+//         firstName: 1,
+//         lastName: 1,
+//         phoneNumber: 1,
+//         preferences: 1,
+//     }
+// }
 
 export const CleanerProAptSelect = {
     address: 1,
@@ -131,15 +131,6 @@ export const CleanerProAptPopulate = [
                 model: 'Address'
             },
         ]
-    },
-    {
-        path: 'buildings.$*.units.$*.client',
-        model: 'User',
-        select: {
-            firstName: 1,
-            lastName: 1,
-            phoneNumber: 1
-        }
     }
 ]
 
@@ -147,9 +138,6 @@ export const CleanerproAptPopulateToUnit = [
     {
         path: 'address',
         model: 'Address'
-    },
-    {
-       ...populateUnitClient,
     },
     {
         ...populateUnitOrder,
