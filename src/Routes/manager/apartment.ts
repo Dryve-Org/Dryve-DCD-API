@@ -10,6 +10,7 @@ import { AptToUnitI } from '../interface'
 import Cleaner from '../../Models/cleaner.model'
 import { err, extractUnitId, idToString } from '../../constants/general'
 import SAP from '../../Models/ServicesAndProducts'
+import { checkAllSubscriptions } from '../../events/CheckClient'
 
 const AptR = express.Router()
 
@@ -35,6 +36,19 @@ async (req: Request<{aptId: string}, {}, ManagerAuthI>, res: Response) => {
         }
 
         res.status(200).send(apt)
+    } catch(e) {
+        res.status(400).send(e)
+    }
+})
+
+AptR.put(
+'/apartment/check_subscriptions',
+ManagerR,
+async (req: Request<{}, {}, ManagerAuthI>, res: Response) => {
+    try {
+        await checkAllSubscriptions()
+
+        res.status(200).send('done')
     } catch(e) {
         res.status(400).send(e)
     }

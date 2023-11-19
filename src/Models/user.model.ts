@@ -8,6 +8,8 @@ import Apt, { UnitI } from "./aparmtent/apartment.model"
 import { err, extractUnitId, idToString } from "../constants/general"
 import Master, { MasterI } from "./master"
 import _ from "lodash"
+import { stripe } from "../constants/moneyHandling"
+import Stripe from "stripe"
 
 export type UserDocT = mongoose.Document<unknown, any, UserI> & UserI & {
     _id: mongoose.Types.ObjectId
@@ -55,6 +57,16 @@ interface UserIMethods {
         this: UserDocT,
         clientPreferencesId: string
     ): Promise<UserDocT>
+    
+    /**
+     *  check if client is subscribed and paid for
+     * 
+     * @param { string[] } clientPreferencesIds
+     * @returns { Promise<UserI> }
+    */
+    checkClientSubcription(
+        this: UserDocT
+    ): Promise<any>
 }
 
 export interface UserI extends UserIMethods {
@@ -83,6 +95,12 @@ export interface UserI extends UserIMethods {
     attachedUnitIds: string[]
     preferences: string[]
     activeOrders: Types.ObjectId[]
+    subscriptions: {
+        id: string
+        status: Stripe.Subscription.Status
+        unitId: string,
+        bagQuantity: number
+    }[]
 }
 
 type UserModelT = Model<UserI, {}, UserIMethods>
@@ -183,6 +201,13 @@ const UserSchema = new Schema<UserI, UserModelT, UserIMethods>({
     attachedUnitIds: [{
         type: String,
         default: []
+    }],
+    subscriptions: [{
+        id: String,
+        status: String,
+        unitId: String,
+        bagQuantity: Number,
+        default: []
     }]
 })
 
@@ -207,6 +232,7 @@ UserSchema.methods.generateAuthToken = async function(
     return token
 }
 
+//Update this or remove it
 UserSchema.methods.addUnitId = async function(
     this: UserDocT,
     unitId: string
@@ -233,9 +259,9 @@ UserSchema.methods.addUnitId = async function(
     
         const [, , unit] = unitData
         
-        if(unit.client?.toString() !== user._id.toString()) {
-            throw err(400, 'client is not in this unit')
-        }
+        // if(unit.client?.toString() !== user._id.toString()) {
+        //     throw err(400, 'client is not in this unit')
+        // }
 
         user.attachedUnitIds.push(unitId)
     
@@ -248,7 +274,6 @@ UserSchema.methods.addUnitId = async function(
         return user
     } catch(e: any) {
         if(e.status && e.message) throw e
-        console.log(e)
         throw err(500, e)
     }
 }
@@ -408,6 +433,19 @@ UserSchema.methods.removePreference = async function(
 
     return user
 }
+
+//To be conitnued...
+UserSchema.methods.checkClientSubcription = async function() {
+    const user = this
+
+    const stripeUser = await stripe.subscriptions.list({
+        customer: user.stripeId
+    })
+    
+
+    return stripeUser
+}
+
 const User = model("User", UserSchema)
 
 export default User

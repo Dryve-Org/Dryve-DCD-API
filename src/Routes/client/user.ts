@@ -39,7 +39,11 @@ userRouter.post('/', async (req: Request<{}, {}, postUserI>, res: Response) => {
             throw "server error: retreiving user"
         }
         
-        const customer = await createStripeCustomer(user.email)
+        const customer = await createStripeCustomer(
+            user.email,
+            user.firstName,
+            user.lastName
+        )
 
         user.created = now()
 

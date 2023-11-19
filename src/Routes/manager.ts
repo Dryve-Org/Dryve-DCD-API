@@ -513,7 +513,11 @@ async (req: Request<{}, {}, ManCreateUserI>, res: Response) => {
         user.password = password
         user.dob = dob
         user.phoneNumber = phoneNumber
-        const customer = await createStripeCustomer(email)
+        const customer = await createStripeCustomer(
+            email,
+            firstName,
+            lastName
+        )
         user.stripeId = customer.id
         user.created = now()
         user.firstName = firstName

@@ -1,6 +1,9 @@
 import { err } from "../../constants/general"
+import { stripe } from "../../constants/moneyHandling"
 import Master from "../master"
+import User, { UserDocT, UserI } from "../user.model"
 import { AptDocT } from "./apartment.model"
+import v from 'validator'
 
 /**
  * get building
@@ -39,7 +42,6 @@ export async function activateUnit(this: AptDocT,
     
     if(apt.buildings.get(buildingId)) err(400, `could not find building ${buildingId}`)
     if(!unit) throw err(400, `could not find unit ${unitId}`)
-    if(!unit.client) throw err(400, `there is no client in unit ${unitId}`)
     if(unit.isActive) throw err(400, `unit ${unitId} is already active`)
 
     unit.isActive = true
@@ -103,5 +105,125 @@ export async function updateMaster(
     await apt.save()
 
     return apt
+}
+
+export async function addSubscription(
+    this: AptDocT,
+    unitId: string,
+    subscriptionId: string,
+    /**
+     * this alse can be a user email
+     */
+    clientId: string,
+    bagQuantity: number
+) {
+    const apt = this
+    const unitData = apt.getUnitId(unitId)
+    if(!unitData) throw err(400, 'unit does not exist')
+
+    const [buildingId, unitNum, unit] = unitData
+    
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+    if(!subscription || !subscription.status) throw err(400, 'subscription does not exist')
+    
+    let client: any
+
+    if(v.isEmail(clientId)) {
+        client = await User.findOne({ email: clientId })
+    } else {
+        client = await User.findById(clientId.toString())
+    }
+    
+    if(!client || client === null) throw err(400, 'client does not exist')
+
+    if(unit.subscriptions.filter(sub => sub.id === subscriptionId || sub.client.toString() === client.id).length > 0) {
+        throw err(400, 'cannot add subscription to unit because it already exists or client already has subscription')
+    }
+
+    if(subscription.customer !== client.stripeId) {
+        throw err(400, `${ client.firstName } ${ client.lastName } does not own subscription ${ subscriptionId }`)
+    }
+
+    let updateClient = false
+
+    if(!client.attachedUnitIds.includes(unitId)) {
+        client.attachedUnitIds.push(unitId)
+        updateClient = true
+    }
+
+    if(!client.subscriptions.filter((sub: any) => sub.id === subscription.id)[0]) {
+        client.subscriptions.push({
+            id: subscription.id,
+            status: subscription.status,
+            unitId: unitId,
+            bagQuantity
+        })
+        updateClient = true
+    }
+    
+    unit.subscriptions.push({
+        id: subscription.id,
+        client: client._id,
+        status: subscription.status,
+        bagQuantity
+    })
+
+    apt.buildings.get(buildingId)?.units.set(unitNum, unit)
+
+    await apt.save()
+    updateClient && client.save()
+
+    return apt.buildings.get(buildingId)?.units.get(unitNum)
+}
+
+export async function checkAllSubscriptions(
+    this: AptDocT,
+) {
+    const apt = this
+
+    //for each building in the apartment
+    apt.buildings.forEach((building, bldId) => {
+        //for each unit in the building
+        building.units.forEach((unit, unitNum) => {
+            //for each subscription in the unit
+            unit.subscriptions.forEach(async (unitSub, unitSubIndex) => {
+
+                //get the subscription from stripe
+                const subscription = await stripe.subscriptions.retrieve(unitSub.id)
+                if(!subscription) {
+                    console.log('subscription does not exist')
+                }
+
+                //if the subscription is cancelled
+                if(subscription.status === 'canceled') {
+                    //remove the subscription from the unit
+                    unit.subscriptions = unit.subscriptions.filter(sub => sub.id !== subscription.id)
+
+                    apt.buildings.get(bldId)?.units.set(unitNum, unit)
+
+                    apt.save()
+
+                    //remove the subscription from the client
+                    User.findById(unitSub.client)
+                        .then(client => {
+                            if(!client) {
+                                console.log('client does not exist')
+                            } else {
+                                client.subscriptions = client.subscriptions.filter((sub: any) => sub.id !== subscription.id)
+                                client.save()
+                            }
+                        })
+                } else {
+                    console.log('checked to update subscription status')
+                    //update the subscription status if it has changed
+                    if(unitSub.status !== subscription.status) {
+                        unitSub.status = subscription.status
+                        unit.subscriptions[unitSubIndex] = unitSub
+                        await apt.save()
+                    }
+                }
+            })
+        })
+    })
 }
 

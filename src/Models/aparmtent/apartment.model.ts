@@ -8,19 +8,34 @@ import v from 'validator'
 import { generatePassword, idToString } from '../../constants/general'
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
 import { sendEmailVerify } from '../../constants/email/setup'
-import { activateUnit, generateId, getBuilding, updateMaster } from './methods'
+import { activateUnit, addSubscription, checkAllSubscriptions, generateId, getBuilding, updateMaster } from './methods'
 import { now, unixDay } from '../../constants/time'
 import UnitVerifySession from '../sessions/unitVerify.model'
+import Stripe from 'stripe'
 
 export type AptDocT = mongoose.Document<unknown, any, AptI> & AptI & {
     _id: mongoose.Types.ObjectId
 }
 
 export interface UnitI {
-    client?: Types.ObjectId
     isActive?: boolean
     address: Types.ObjectId
     activeOrders: Types.ObjectId[]
+    /**
+     * This is a list of subscription ids
+     * from stripe. This is used to keep track
+     * of the subscriptions that are active.
+     * 
+     * The status of this Id will be checked everyday.
+     * If the status of the subscription is not active
+     * then the order will not be able to initiate.
+    */
+    subscriptions: {
+        id: string
+        status: Stripe.Subscription.Status
+        client: Types.ObjectId
+        bagQuantity: number
+    }[]
     /**
      * This is the unit's readable id that will be used
      * throughtout the this api
@@ -147,7 +162,7 @@ interface AptIMethods {
         email: string,
         firstName: string,
         lastName: string
-    ): Promise<AddressDocT>
+    ): Promise<AptDocT>
     
     /**
      * Add client to an apartment unit
@@ -162,7 +177,25 @@ interface AptIMethods {
     removeClient(
         unitId: string,
         email: string
-    ): Promise<AddressDocT>
+    ): Promise<AptDocT>
+
+    /**
+     * Add subscription to unit
+     * 
+     * @param this 
+     * @param unitId 
+     * @param subscriptionId 
+     * @param client 
+     */
+    addSubscription(
+        unitId: string,
+        subscriptionId: string,
+        /**
+         * This can also be an email
+         */
+        clientId: string,
+        bagQuantity: number
+    ): Promise<UnitI>
     
     /**
      * Activate client to an apartment unit
@@ -176,7 +209,14 @@ interface AptIMethods {
     activateUnit(
         buildingId: string,
         unitId: string
-    ): Promise<AddressDocT>
+    ): Promise<AptDocT>
+        
+    /**
+     * Check all subscriptions
+     * 
+     * @return {Promise<void>}
+    */
+    checkAllSubscriptions(): Promise<void>
     
     /**
      * Deactivate client to an apartment unit
@@ -190,7 +230,7 @@ interface AptIMethods {
     deactivateUnit(
         buildingId: string,
         unitId: string
-    ): Promise<AddressDocT>
+    ): Promise<AptDocT>
     
     /**
      * Add order to unit
@@ -332,10 +372,6 @@ const AptSchema = new Schema<AptI, AptModelT, AptIMethods>(
                             ref: 'Address',
                             required: true
                         },
-                        client: {
-                            type: Schema.Types.ObjectId,
-                            ref: 'User',
-                        },
                         isActive: {
                             type: Boolean,
                             default: false
@@ -353,6 +389,18 @@ const AptSchema = new Schema<AptI, AptModelT, AptIMethods>(
                             type: Number,
                             nullable: true,
                             default: null
+                        },
+                        subscriptions: {
+                            type: [{
+                                id: String,
+                                status: String,
+                                client: {
+                                    type: Schema.Types.ObjectId,
+                                    ref: 'User'
+                                },
+                                bagQuantity: Number
+                            }],
+                            default: []
                         },
                         default: {}
                     }
@@ -466,7 +514,6 @@ AptSchema.method('addBuilding', async function(
 
             calcedUnits.set(unit, {
                 address: unitAddy._id,
-                client: undefined,
                 isActive: false,
                 unitId: 'N/A'
             } as UnitI)
@@ -518,7 +565,8 @@ AptSchema.method<AptDocT>('addUnit', async function(
         isActive: false,
         queued: null,
         unitId: 'N/A',
-        activeOrders: []
+        activeOrders: [],
+        subscriptions: []
     })
 
     await apt.save()
@@ -571,10 +619,10 @@ AptSchema.method('addUnits', async function(
         apt.buildings.get(buildingId)?.units.set(unitNum, {
             address: unitAddy._id,
             isActive: false,
-            client: undefined,
             queued: null,
             unitId: 'N/A',
-            activeOrders: []
+            activeOrders: [],
+            subscriptions: []
         })
     }
 
@@ -686,7 +734,11 @@ AptSchema.method('removeClient', async function(
     return apt
 })
 
+AptSchema.method('addSubscription', addSubscription)
+
 AptSchema.method('activateUnit', activateUnit)
+
+AptSchema.method('checkAllSubscriptions', checkAllSubscriptions)
 
 AptSchema.method('deactivateUnit', async function(
     this: AptDocT,
@@ -700,7 +752,6 @@ AptSchema.method('deactivateUnit', async function(
     
     if(apt.buildings.get(buildingId)) err(400, 'could not find building')
     if(!unit) throw err(400, 'could not find unit')
-    if(!unit.client) throw err(400, 'client already does not exists')
     if(
         unit.activeOrders.length > 0
     ) throw err(400, 'order is currently in progress')
@@ -725,7 +776,6 @@ AptSchema.method('addOrderToUnit', async function(
     const [ bldNum, unitNum, unit] = unitData
 
     if(!unit) throw err(400, 'could not find unit')
-    if(!unit.client) throw err(400, 'client already does not exists')
     if(!unit.isActive) throw err(400, 'unit not active')
 
     unit.activeOrders.push(orderId)

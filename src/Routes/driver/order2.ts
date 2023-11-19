@@ -48,116 +48,117 @@ const findActiveOrder = async (
  * 
  * this needs to be updated to unit id
 */
-orderR.post(
-'/order/create/:unitId',
-driverAuth,
-async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
-    try {
-        const {
-            /**
-             *unit id
-            */
-            unitId
-        } = req.params
-        const { driver } = req.body
+// orderR.post(
+// '/order/create/:unitId',
+// driverAuth,
+// async (req: Request<AptToUnitI, {}, DriverAuthI>, res: Response) => {
+//     try {
+//         const {
+//             /**
+//              *unit id
+//             */
+//             unitId
+//         } = req.params
+//         const { driver } = req.body
 
-        const apt = await getAPtByUnitId(unitId)
-        if(!apt) throw 'invalid apartment id'
+//         const apt = await getAPtByUnitId(unitId)
+//         if(!apt) throw 'invalid apartment id'
 
-        const unitData = apt.getUnitId(unitId)
-        if(!unitData) throw 'invalid unit id'
+//         const unitData = apt.getUnitId(unitId)
+//         if(!unitData) throw 'invalid unit id'
 
-        const unit = unitData[2]
-        const bldId = unitData[0]
-        const unitNum = unitData[1]
+//         const unit = unitData[2]
+//         const bldId = unitData[0]
+//         const unitNum = unitData[1]
 
-        //client and isActive must be true to continue
-        if(!unit?.client || !unit?.isActive || !unit || unit.queued === null) throw `
-            unit not capable of creating an order
-        `
+//         //client and isActive must be true to continue
+//         //update
+//         // if(!unit?.client || !unit?.isActive || !unit || unit.queued === null) throw `
+//         //     unit not capable of creating an order
+//         // `
 
-        const master = await Master.findById(apt.master)
-        if(!master) throw 'master could not be retreived'
+//         const master = await Master.findById(apt.master)
+//         if(!master) throw 'master could not be retreived'
 
-        const client = await User.findById(unit.client)
-        if(!client) {
-            res.status(500).send('client could not be retreived')
-            return
-        }
+//         // const client = await User.findById(unit.client)
+//         // if(!client) {
+//         //     res.status(500).send('client could not be retreived')
+//         //     return
+//         // }
 
-        // if(!client.emailVerified) {
-        //     sendEmailVerify(
-        //         client.email,
-        //         client.firstName,
-        //         `${process.env.HOST}/client/verify_email/${ client.id }`,
-        //         apt.name
-        //     )
+//         // if(!client.emailVerified) {
+//         //     sendEmailVerify(
+//         //         client.email,
+//         //         client.firstName,
+//         //         `${process.env.HOST}/client/verify_email/${ client.id }`,
+//         //         apt.name
+//         //     )
 
-        //     throw `user's email is not verified`
-        // }                                                                                                                    
+//         //     throw `user's email is not verified`
+//         // }                                                                                                                    
 
-        const orderAlreadyExist = await findActiveOrder(client.id, unit.address)
-        if(orderAlreadyExist) throw orderAlreadyExist
+//         const orderAlreadyExist = await findActiveOrder(client.id, unit.address)
+//         if(orderAlreadyExist) throw orderAlreadyExist
 
-        //need to get the region's cleaner
-        const order = await Order.create({
-            master: apt.master,
-            clientPreferences: master.clientPreferences.filter(preference => {
-                //@ts-ignore
-                if(client.preferences.includes(idToString(preference._id))) {
-                    return true
-                }
-            }),
-            client: client._id,
-            origin: unit.address,
-            dropOffAddress: unit.address,
-            status: "Clothes To Cleaner",
-            created: now(),
-            pickUpDriver: driver._id,
-            apartment: apt._id,
-            aptName: apt.name,
-            createdBy: {
-                userType: 'Driver',
-                userTypeId: driver._id
-            },
-            userCard: client.preferredCardId,
-            building: bldId,
-            unit: unitId,
-            unitId: unit.unitId
-        })
+//         //need to get the region's cleaner
+//         const order = await Order.create({
+//             master: apt.master,
+//             clientPreferences: master.clientPreferences.filter(preference => {
+//                 //@ts-ignore
+//                 if(client.preferences.includes(idToString(preference._id))) {
+//                     return true
+//                 }
+//             }),
+//             client: client._id,
+//             origin: unit.address,
+//             dropOffAddress: unit.address,
+//             status: "Clothes To Cleaner",
+//             created: now(),
+//             pickUpDriver: driver._id,
+//             apartment: apt._id,
+//             aptName: apt.name,
+//             createdBy: {
+//                 userType: 'Driver',
+//                 userTypeId: driver._id
+//             },
+//             userCard: client.preferredCardId,
+//             building: bldId,
+//             unit: unitId,
+//             unitId: unit.unitId
+//         })
 
-        driver.activeOrders.push(order._id)
-        driver.orders.push(order._id)
-        client.orders.push(order._id)
+//         driver.activeOrders.push(order._id)
+//         driver.orders.push(order._id)
+//         // client.orders.push(order._id)
 
-        await order.save()
-        driver.save()
-        client.save()
-        apt.dequeueUnit(unit.unitId)
+//         await order.save()
+//         driver.save()
+//         // client.save()
+//         apt.dequeueUnit(unit.unitId)
         
-        await apt.addOrderToUnit(unit.unitId, order.id)
-            .catch(() => {
-                console.error(`
-                    unable to add order ${order.id} to unit ${unitId}
-                `)
-            })
+//         await apt.addOrderToUnit(unit.unitId, order.id)
+//             .catch(() => {
+//                 console.error(`
+//                     unable to add order ${order.id} to unit ${unitId}
+//                 `)
+//             })
 
-        order.addEvent(
-            'Driver created order',
-            '',
-            'driver',
-            driver._id
-        )
+//         order.addEvent(
+//             'Driver created order',
+//             '',
+//             'driver',
+//             driver._id
+//         )
         
-        res.status(200).send(order)
-    } catch(e: any) {
-        if(e.status && e.message) {
-            res.status(e.status).send(e.message)
-        } else {
-            res.status(500).send(e)
-        }
-    }
-})
+//         res.status(200).send(order)
+//     } catch(e: any) {
+//         if(e.status && e.message) {
+//             res.status(e.status).send(e.message)
+//         } else {
+//             res.status(500).send(e)
+//         }
+//     }
+// })
 
 interface ClientOrderCreateI {
     clientEmail: string
@@ -190,12 +191,13 @@ async (req: Request<ClientOrderCreateI, {}, DriverAuthI>, res: Response) => {
         }
 
         const activeOrders = client.activeOrders
-
+        
         if(activeOrders.length > 0) {
             client.activeOrders.forEach(order => {
                 //@ts-ignore
                 if(order.unitId === unitId) {
-                    throw err(400, 'client already has an active order for this unit')
+                    console.log(order, unitId)
+                    throw err(400, `client already has an active order for this unit`)
                 }
             })
         }

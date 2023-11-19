@@ -111,16 +111,16 @@ const populateUnitOrder = {
     select: driverOrderSelect
 }
 
-const populateUnitClient = {
-    path: 'buildings.$*.units.$*.client',
-    model: 'User',
-    select: {
-        firstName: 1,
-        lastName: 1,
-        phoneNumber: 1,
-        email: 1,
-    }
-}
+// const populateUnitClient = {
+//     path: 'buildings.$*.units.$*.client',
+//     model: 'User',
+//     select: {
+//         firstName: 1,
+//         lastName: 1,
+//         phoneNumber: 1,
+//         email: 1,
+//     }
+// }
 
 export const driveAptPopulateToUnit = [
     {
@@ -130,7 +130,6 @@ export const driveAptPopulateToUnit = [
     populateBldAddress,
     populateUnitAddress,
     populateUnitOrder,
-    populateUnitClient
 ]
 
 export const driverAptPopulate = [
