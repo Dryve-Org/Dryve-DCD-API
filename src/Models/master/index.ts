@@ -27,6 +27,7 @@ export interface MasterI {
     */
     clientPreferences: ClientPreferenceI[]
     servicesAndProducts: Types.ObjectId[]
+    title: string
 }
 
 export type MasterDocT = mongoose.Document<unknown, any, MasterI> & MasterI & {

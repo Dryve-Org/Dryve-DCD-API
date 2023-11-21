@@ -8,16 +8,13 @@ import ManagerR from './manager'
 import v from 'validator'
 import { AptToUnitI } from '../interface'
 import Cleaner from '../../Models/cleaner.model'
-import { err, extractUnitId, idToString } from '../../constants/general'
+import { err, extractUnitId, idToString, stringToId } from '../../constants/general'
 import SAP from '../../Models/ServicesAndProducts'
 import { checkAllSubscriptions } from '../../events/CheckClient'
 
 const AptR = express.Router()
 
-interface AddAptI extends ManagerAuthI {
-    name: string
-    address: AddressI
-}
+
 
 /*
     Get apartment information by id
@@ -29,8 +26,13 @@ async (req: Request<{aptId: string}, {}, ManagerAuthI>, res: Response) => {
     try {
         const { aptId } = req.params
 
-        const apt = await Apt.findById(aptId)
-            .populate('address')
+        const apt = await Apt.findOne({
+            '$or': [
+                { aptId: extractUnitId(aptId)[0] },
+                { id: aptId }
+            ]
+        }).populate('address')
+
         if(!apt) {
             throw 'invalid apartment id'
         }
@@ -41,6 +43,12 @@ async (req: Request<{aptId: string}, {}, ManagerAuthI>, res: Response) => {
     }
 })
 
+/* The above code is defining a route in an Express.js application. The route is for the PUT HTTP
+method and the path is '/apartment/check_subscriptions'. It is using a middleware function called
+ManagerR to authenticate the request. The route handler is an asynchronous function that tries to
+call the function checkAllSubscriptions(). If the function call is successful, it sends a response
+with a status code of 200 and the message 'done'. If there is an error, it sends a response with a
+status code of 400 and the error message. */
 AptR.put(
 '/apartment/check_subscriptions',
 ManagerR,
@@ -54,6 +62,12 @@ async (req: Request<{}, {}, ManagerAuthI>, res: Response) => {
     }
 })
 
+interface AddAptI extends ManagerAuthI {
+    name: string
+    address: AddressI
+    masterId: string
+}
+
 /*
     Add an Apartment
 */
@@ -64,10 +78,11 @@ async (req: Request<{}, {}, AddAptI>, res: Response) => {
     try {
         const { 
             name,
-            address
+            address,
+            masterId
         } = req.body
         /// Validation ///
-        if(!name || !address) throw 'invalid body'
+        if(!name || !address || !masterId) throw 'invalid body'
 
         const addy = await addAddress(address)
             .catch(() => { 
@@ -76,7 +91,8 @@ async (req: Request<{}, {}, AddAptI>, res: Response) => {
 
         const apt = new Apt({
             name,
-            address: addy
+            address: addy,
+            masterId
         })
 
         await apt.save()
@@ -108,7 +124,12 @@ async (req: Request<AptToUnitI, {}, AddPrimCln>, res: Response) => {
         const { aptId } = req.params
         const { cleanerId, overrideDistance } = req.body
 
-        const apt = await Apt.findById(aptId)
+        const apt = await Apt.findOne({
+            '$or': [
+                { aptId: extractUnitId(aptId)[0] },
+                { _id: stringToId(aptId) }
+            ]
+        })
         if(!apt) throw 'invalid apartment Id'
 
         const cleaner = await Cleaner.findById(cleanerId)
@@ -150,7 +171,12 @@ async (req: Request<AptToUnitI, {}, AddPrimCln>, res: Response) => {
         const { aptId } = req.params
         const { cleanerId, overrideDistance } = req.body
 
-        const apt = await Apt.findById(aptId)
+        const apt = await Apt.findOne({
+            '$or': [
+                { aptId: extractUnitId(aptId)[0] },
+                { _id: stringToId(aptId) }
+            ]
+        })
         if(!apt) throw 'invalid apartment Id'
 
         const cleaner = await Cleaner.findById(cleanerId)
@@ -202,12 +228,17 @@ async (req: Request<{aptId: string}, {}, AddBuildings>, res: Response) => {
 
         //edit: There's no way to validate buildings
 
-        const apt = await Apt.findById(aptId).populate('buildings.$*')
+        const apt = await Apt.findOne({
+            '$or': [
+                { aptId: extractUnitId(aptId)[0] },
+                { _id: stringToId(aptId) }
+            ]
+        })
+        .populate('buildings.$*')
         if(!apt) {
             throw 'invalid apartment id'
         }
-
-        
+ 
         if(apt.buildings) {
             if(apt.buildings.get(building)) throw 'building already exists'
         }
@@ -246,7 +277,12 @@ async (req: Request<{
         /* body validation */
         if(typeof unit !== 'string') throw 'invalid body'
         
-        const apt = await Apt.findById(aptId)
+        const apt = await Apt.findOne({
+            '$or': [
+                { aptId: extractUnitId(aptId)[0] },
+                { _id: stringToId(aptId) }
+            ]
+        })
         if(!apt) throw 'invalid params'
         if(!apt.buildings.get(bld)) throw 'invalid params'
         apt.buildings.toObject()
@@ -285,7 +321,12 @@ async (req: Request<{
         if(typeof units !== 'object') throw 'invalid body'
         
         //get apartment
-        const apt = await Apt.findById(aptId)
+        const apt = await Apt.findOne({
+            '$or': [
+                { aptId: extractUnitId(aptId)[0] },
+                { _id: stringToId(aptId) }
+            ]
+        })
         if(!apt) throw 'invalid params'
         //throw if building does not exist
         if(!apt.buildings.get(bld)) throw 'invalid params'
@@ -401,20 +442,20 @@ async (req: Request<AptToUnitI, {}, SetSAPsI>, res: Response) => {
  * 
 */
 AptR.put(
-'/apartment/:aptId/:bldId/:unitId/activate_unit',
+'/apartment/:unitId/activate_unit',
 managerAuth,
 async (req: Request<AptToUnitI, {}, ManagerAuthI>, res: Response) => {
     try {
         const {
-            aptId,
-            bldId,
             unitId
         } = req.params
 
-        const apt = await Apt.findById(aptId)
+        const apt = await Apt.findOne({
+            aptId: extractUnitId(unitId)[0]
+        })
         if(!apt) throw 'invalid params'
 
-        apt.activateUnit(bldId, unitId)
+        apt.activateUnit(unitId)
             .then(data => {
                 res.status(200).send(data)
             })

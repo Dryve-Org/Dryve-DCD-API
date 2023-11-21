@@ -26,27 +26,23 @@ export function getBuilding (this: AptDocT,
  * Activate client to an apartment unit
  * 
  * **Client must be in unit
- * 
- * @param {string} buildingId - string - building identifier
  * @param {String} unitId - strings - unit identifier
  * @return {Promise<AptDocT>} - updated Apt document
 */
 export async function activateUnit(this: AptDocT,
-    buildingId: string, 
     unitId: string
 ) {
     const apt = this
     
-    const unit = apt.buildings.get(buildingId)?.units
-        .get(unitId)
-    
-    if(apt.buildings.get(buildingId)) err(400, `could not find building ${buildingId}`)
-    if(!unit) throw err(400, `could not find unit ${unitId}`)
+    const unitdata = apt.getUnitId(unitId)
+    if(!unitdata) throw err(400, `could not find unit ${unitId}`)
+    const [buildingId, unitNum, unit] = unitdata
+
     if(unit.isActive) throw err(400, `unit ${unitId} is already active`)
 
     unit.isActive = true
 
-    apt.buildings.get(buildingId)?.units.set(unitId, unit)
+    apt.buildings.get(buildingId)?.units.set(unitNum, unit)
 
     await apt.save()
     return apt
@@ -122,6 +118,7 @@ export async function addSubscription(
     if(!unitData) throw err(400, 'unit does not exist')
 
     const [buildingId, unitNum, unit] = unitData
+    if(!unit.isActive) throw err(400, 'unit is not active')
     
     const subscription = await stripe.subscriptions.retrieve(subscriptionId)
     if(!subscription || !subscription.status) throw err(400, 'subscription does not exist')
@@ -176,6 +173,13 @@ export async function addSubscription(
     return apt.buildings.get(buildingId)?.units.get(unitNum)
 }
 
+/**
+ * The function `checkAllSubscriptions` checks the status of all subscriptions in an apartment, removes
+ * cancelled subscriptions, and updates the status of active subscriptions.
+ * 
+ * @param {AptDocT} - `this: AptDocT` is the context of the function, which is an instance of
+ * `AptDocT`.
+*/
 export async function checkAllSubscriptions(
     this: AptDocT,
 ) {

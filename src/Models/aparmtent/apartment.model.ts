@@ -200,14 +200,10 @@ interface AptIMethods {
     /**
      * Activate client to an apartment unit
      * 
-     * **Client must be in unit
-     * 
-     * @param {string} buildingId - string - building identifier
      * @param {String} unitId - strings - unit identifier
      * @return {Promise<AptDocT>} - updated Apt document
     */
     activateUnit(
-        buildingId: string,
         unitId: string
     ): Promise<AptDocT>
         
@@ -432,6 +428,7 @@ const AptSchema = new Schema<AptI, AptModelT, AptIMethods>(
         },
         aptId: {
             type: String,
+            unique: true    
         },
         unitIndex: {
             type: Number,
@@ -514,7 +511,7 @@ AptSchema.method('addBuilding', async function(
 
             calcedUnits.set(unit, {
                 address: unitAddy._id,
-                isActive: false,
+                isActive: true,
                 unitId: 'N/A'
             } as UnitI)
         }
@@ -562,7 +559,7 @@ AptSchema.method<AptDocT>('addUnit', async function(
 
     apt.buildings.get(buildingId)?.units.set(unitId, {
         address: addy._id,
-        isActive: false,
+        isActive: true,
         queued: null,
         unitId: 'N/A',
         activeOrders: [],
