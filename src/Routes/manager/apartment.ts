@@ -21,10 +21,11 @@ const AptR = express.Router()
 */
 AptR.get(
 '/apartment/:aptId',
-ManagerR,
+managerAuth,
 async (req: Request<{aptId: string}, {}, ManagerAuthI>, res: Response) => {
     try {
         const { aptId } = req.params
+        const { manager } = req.body
 
         const apt = await Apt.findOne({
             '$or': [
@@ -37,11 +38,37 @@ async (req: Request<{aptId: string}, {}, ManagerAuthI>, res: Response) => {
             throw 'invalid apartment id'
         }
 
+        if(!idToString(manager.masters).includes(apt.master.toString())) {
+            throw err(401, 'unauthorized to this master')
+        }
+
         res.status(200).send(apt)
     } catch(e) {
         res.status(400).send(e)
     }
 })
+
+/*
+    Get all apartments
+*/
+// AptR.get(
+// '/apartment/all',
+// ManagerR,
+// async (req: Request<{}, {}, ManagerAuthI>, res: Response) => {
+//     try {
+//         const { manager } = req.body
+
+//         const apts = await Apt.find({
+//             $in: {
+//                 masterId: manager.mast
+//             }
+//         })
+
+//         res.status(200).send(apts)
+//     } catch(e) {
+//         res.status(400).send(e)
+//     }
+// }
 
 /* The above code is defining a route in an Express.js application. The route is for the PUT HTTP
 method and the path is '/apartment/check_subscriptions'. It is using a middleware function called
@@ -51,7 +78,7 @@ with a status code of 200 and the message 'done'. If there is an error, it sends
 status code of 400 and the error message. */
 AptR.put(
 '/apartment/check_subscriptions',
-ManagerR,
+managerAuth,
 async (req: Request<{}, {}, ManagerAuthI>, res: Response) => {
     try {
         await checkAllSubscriptions()
@@ -79,10 +106,14 @@ async (req: Request<{}, {}, AddAptI>, res: Response) => {
         const { 
             name,
             address,
-            masterId
+            masterId,
+            manager
         } = req.body
         /// Validation ///
         if(!name || !address || !masterId) throw 'invalid body'
+        if(!idToString(manager.masters).includes(masterId)) {
+            throw err(401, 'unauthorized to this master')
+        }
 
         const addy = await addAddress(address)
             .catch(() => { 
@@ -122,7 +153,7 @@ managerAuth,
 async (req: Request<AptToUnitI, {}, AddPrimCln>, res: Response) => {
     try {
         const { aptId } = req.params
-        const { cleanerId, overrideDistance } = req.body
+        const { cleanerId, overrideDistance, manager } = req.body
 
         const apt = await Apt.findOne({
             '$or': [
@@ -131,6 +162,9 @@ async (req: Request<AptToUnitI, {}, AddPrimCln>, res: Response) => {
             ]
         })
         if(!apt) throw 'invalid apartment Id'
+        if(!idToString(manager.masters).includes(apt.master.toString())) {
+            throw err(401, 'unauthorized to this master')
+        }
 
         const cleaner = await Cleaner.findById(cleanerId)
         if(!cleaner) throw 'invalid cleaner id'
@@ -169,7 +203,7 @@ managerAuth,
 async (req: Request<AptToUnitI, {}, AddPrimCln>, res: Response) => {
     try {
         const { aptId } = req.params
-        const { cleanerId, overrideDistance } = req.body
+        const { cleanerId, overrideDistance, manager } = req.body
 
         const apt = await Apt.findOne({
             '$or': [
@@ -178,6 +212,10 @@ async (req: Request<AptToUnitI, {}, AddPrimCln>, res: Response) => {
             ]
         })
         if(!apt) throw 'invalid apartment Id'
+
+        if(!idToString(manager.masters).includes(apt.master.toString())) {
+            throw err(401, 'unauthorized to this master')
+        }
 
         const cleaner = await Cleaner.findById(cleanerId)
         if(!cleaner) throw 'invalid cleaner id'
@@ -214,14 +252,15 @@ interface AddBuildings extends ManagerAuthI {
 */
 AptR.put(
 '/apartment/:aptId/add_building',
-ManagerR,
+managerAuth,
 async (req: Request<{aptId: string}, {}, AddBuildings>, res: Response) => {
     try {
         const { aptId } = req.params
         const { 
             building,
             address,
-            units 
+            units,
+            manager
         } = req.body
 
         if(!address || !building) throw 'invalid body'
@@ -237,6 +276,10 @@ async (req: Request<{aptId: string}, {}, AddBuildings>, res: Response) => {
         .populate('buildings.$*')
         if(!apt) {
             throw 'invalid apartment id'
+        }
+
+        if(!idToString(manager.masters).includes(apt.master.toString())) {
+            throw err(401, 'unauthorized to this master')
         }
  
         if(apt.buildings) {
@@ -272,7 +315,7 @@ async (req: Request<{
 }, {}, AddUnitI>, res: Response) => {
     try {
         const { aptId, bld } = req.params
-        const { unit } = req.body
+        const { unit, manager } = req.body
 
         /* body validation */
         if(typeof unit !== 'string') throw 'invalid body'
@@ -286,6 +329,10 @@ async (req: Request<{
         if(!apt) throw 'invalid params'
         if(!apt.buildings.get(bld)) throw 'invalid params'
         apt.buildings.toObject()
+
+        if(!idToString(manager.masters).includes(apt.master.toString())) {
+            throw err(401, 'unauthorized to this master')
+        }
 
         await apt.addUnit(bld, unit)
             .then(() => {
@@ -315,7 +362,7 @@ async (req: Request<{
 }, {}, AddUnitsI>, res: Response) => {
     try {
         const { aptId, bld } = req.params
-        const { units } = req.body
+        const { units, manager } = req.body
 
         /* body validation */
         if(typeof units !== 'object') throw 'invalid body'
@@ -330,6 +377,10 @@ async (req: Request<{
         if(!apt) throw 'invalid params'
         //throw if building does not exist
         if(!apt.buildings.get(bld)) throw 'invalid params'
+
+        if(!idToString(manager.masters).includes(apt.master.toString())) {
+            throw err(401, 'unauthorized to this master')
+        }
         
         apt.addUnits(bld, units)
             .then(() => {
@@ -364,6 +415,7 @@ async (req: Request<AptToUnitI, {}, AddClientToUnit>, res: Response) => {
             email,
             firstName,
             lastName,
+            manager
         } = req.body
 
         if(!v.isEmail(email)) throw 'invalid email'
@@ -374,6 +426,9 @@ async (req: Request<AptToUnitI, {}, AddClientToUnit>, res: Response) => {
 
         const apt = await Apt.findById({ aptId })
         if(!apt) throw 'invalid apartment Id'
+        if(!idToString(manager.masters).includes(apt.master.toString())) {
+            throw err(401, 'unauthorized to this master')
+        }
 
         const unitData = apt.getUnitId(unitId)
         if(!unitData) throw 'unit does not exist'
@@ -414,7 +469,7 @@ async (req: Request<AptToUnitI, {}, SetSAPsI>, res: Response) => {
             aptId 
         } = req.params
         
-        const { SAPId } = req.body
+        const { SAPId, manager } = req.body
         if(!SAPId) throw err(400, 'invalid body')
 
         const sap = await SAP.findById(SAPId)
@@ -422,6 +477,9 @@ async (req: Request<AptToUnitI, {}, SetSAPsI>, res: Response) => {
 
         const apt = await Apt.findById(aptId)
         if(!apt) throw err(400, 'invalid apartment id')
+        if(!idToString(manager.masters).includes(apt.master.toString())) {
+            throw err(401, 'unauthorized to this master')
+        }
 
         apt.servicesAndProducts = sap.id
 
@@ -449,11 +507,15 @@ async (req: Request<AptToUnitI, {}, ManagerAuthI>, res: Response) => {
         const {
             unitId
         } = req.params
+        const { manager } = req.body
 
         const apt = await Apt.findOne({
             aptId: extractUnitId(unitId)[0]
         })
         if(!apt) throw 'invalid params'
+        if(!idToString(manager.masters).includes(apt.master.toString())) {
+            throw err(401, 'unauthorized to this master')
+        }
 
         apt.activateUnit(unitId)
             .then(data => {
@@ -480,9 +542,13 @@ async (req: Request<AptToUnitI, {}, ManagerAuthI>, res: Response) => {
             bldId,
             unitId
         } = req.params
+        const { manager } = req.body
 
         const apt = await Apt.findById(aptId)
         if(!apt) throw 'invalid apartment id'
+        if(!idToString(manager.masters).includes(apt.master.toString())) {
+            throw err(401, 'unauthorized to this master')
+        }
 
         apt.removeClient(bldId, unitId)
             .then(() => {

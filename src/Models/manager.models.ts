@@ -8,6 +8,7 @@ export interface ManagerI {
     attachedStores: Types.ObjectId[]
     created: number
     _id: Types.ObjectId
+    masters: Types.ObjectId[]
 }
 
 const ManagerSchema = new Schema<ManagerI>({
@@ -19,6 +20,11 @@ const ManagerSchema = new Schema<ManagerI>({
     attachedStores: [{
         type: Schema.Types.ObjectId,
         ref: 'Cleaner',
+        default: []
+    }],
+    masters: [{
+        type: Schema.Types.ObjectId,
+        ref: 'Master',
         default: []
     }],
     created: {

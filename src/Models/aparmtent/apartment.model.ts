@@ -8,7 +8,7 @@ import v from 'validator'
 import { generatePassword, idToString } from '../../constants/general'
 import { MongooseFindByReference } from 'mongoose-find-by-reference'
 import { sendEmailVerify } from '../../constants/email/setup'
-import { activateUnit, addSubscription, checkAllSubscriptions, generateId, getBuilding, updateMaster } from './methods'
+import { activateUnit, addSubscription, checkAllSubscriptions, generateId, getBuilding, removeSubscription, updateMaster } from './methods'
 import { now, unixDay } from '../../constants/time'
 import UnitVerifySession from '../sessions/unitVerify.model'
 import Stripe from 'stripe'
@@ -190,11 +190,12 @@ interface AptIMethods {
     addSubscription(
         unitId: string,
         subscriptionId: string,
-        /**
-         * This can also be an email
-         */
-        clientId: string,
         bagQuantity: number
+    ): Promise<UnitI>
+
+    removeSubscription(
+        unitId: string,
+        subscriptionId: string
     ): Promise<UnitI>
     
     /**
@@ -344,7 +345,8 @@ const AptSchema = new Schema<AptI, AptModelT, AptIMethods>(
         },
         master: {
             type: Schema.Types.ObjectId,
-            ref: 'Master'
+            ref: 'Master',
+            required: true
         },
         address: {
             type: Schema.Types.ObjectId,
@@ -732,6 +734,8 @@ AptSchema.method('removeClient', async function(
 })
 
 AptSchema.method('addSubscription', addSubscription)
+
+AptSchema.method('removeSubscription', removeSubscription)
 
 AptSchema.method('activateUnit', activateUnit)
 

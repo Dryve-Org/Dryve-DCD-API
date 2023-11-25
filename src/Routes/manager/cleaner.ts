@@ -34,11 +34,16 @@ async (req: Request<{}, {}, AddCleanerI>, res: Response) => {
             address,
             name,
             phoneNumber,
-            master
+            master,
+            manager
         } = req.body
     
         if(!v.isMobilePhone(phoneNumber)) {
             throw 'invalid phone number'
+        }
+
+        if(!idToString(manager.masters).includes(master)) {
+            throw err(401, 'unauthorized to add cleaner this master')
         }
 
         const masterFound = await Master.findById(master, { name: 1 })
@@ -52,7 +57,8 @@ async (req: Request<{}, {}, AddCleanerI>, res: Response) => {
         const cleaner = await Cleaner.create({
             name,
             address: addy._id,
-            phoneNumber
+            phoneNumber,
+            master
         })
 
         cleaner.save()
@@ -80,15 +86,18 @@ managerAuth,
 async (req: Request<{ clnId: string }, {}, updateClnAddress>, res: Response) => {
     try {
         const { clnId } = req.params
-        const { address } = req.body
+        const { address, manager } = req.body
 
+        const cln = await Cleaner.findById(clnId)
+        if(!cln) throw 'invalid cleanerId'
+        if(!idToString(manager.masters).includes(cln.master.toString())) {
+            throw err(401, 'unauthorized')
+        }
         const addy = await addAddress(address)
             .catch(() => {
                 throw 'invalid address'
             })
         
-        const cln = await Cleaner.findById(clnId)
-        if(!cln) throw 'invalid cleanerId'
 
         cln.address = addy._id
 
@@ -121,12 +130,16 @@ managerAuth,
 async (req: Request<{ clnId: string }, {}, AddServiceI>, res: Response) => {
     try {
         const { clnId } = req.params
-        const { service } = req.body
+        const { service, manager } = req.body
 
         const cleaner = await Cleaner.findById(clnId)
         
         if(!cleaner) {
             throw 'invalid cleaner id'
+        }
+
+        if(!idToString(manager.masters).includes(cleaner.master.toString())) {
+            throw err(401, 'unauthorized')
         }
 
         const svc = await Service.create({
@@ -213,7 +226,7 @@ managerAuth,
 async (req: Request<{ clnId: String }, {}, setUseMinPriceI>, res: Response) => {
     try {
         const { clnId } = req.params
-        const { useMinPrice } = req.body
+        const { useMinPrice, manager } = req.body
 
         const cleaner = await Cleaner.findById(clnId)
         .populate([
@@ -236,6 +249,10 @@ async (req: Request<{ clnId: String }, {}, setUseMinPriceI>, res: Response) => {
                 message: 'invalid cleaner id',
                 status: 400
             }
+        }
+
+        if(!idToString(manager.masters).includes(cleaner.master.toString())) {
+            throw err(401, 'unauthorized')
         }
 
        const cln = await cleaner.setUseMinPrice(useMinPrice)
@@ -271,6 +288,103 @@ async (req: Request<{ clnId: string }, {}, AddMachinesPostI>, res: Response) => 
         res.status(200).send(cleaner)
     } catch(e: any) {
         res.status(e.status).send(e.message)
+    }
+})
+
+/**
+ * Get all cleaners in Master
+*/
+cleanerR.get(
+'/cleaner/all',
+managerAuth,
+async (req: Request<{}, {}, ManagerAuthI>, res: Response) => {
+    try {
+        const cleaners = await Cleaner.find({
+            $in: req.body.manager.masters
+        })
+            .populate([
+                {
+                    path: 'services',
+                    model: 'Service'
+                },
+                {
+                    path: 'minPriceServiceId',
+                    model: 'Service'
+                },
+                {
+                    path: 'address',
+                    model: 'Address'
+                }
+            ])
+        
+        res.status(200).send(cleaners)
+    } catch(e) {
+        res.status(400).send(e)
+    }
+})
+
+/**
+ * Get a cleaner by id
+*/
+cleanerR.get(
+'/cleaner/:clnId',
+managerAuth,
+async (req: Request<{ clnId: string }, {}, ManagerAuthI>, res: Response) => {
+    try {
+        const { clnId } = req.params
+        const { manager } = req.body
+
+        const cleaner = await Cleaner.findById(clnId)
+            .populate([
+                {
+                    path: 'services',
+                    model: 'Service'
+                },
+                {
+                    path: 'minPriceServiceId',
+                    model: 'Service'
+                },
+                {
+                    path: 'address',
+                    model: 'Address'
+                }
+            ])
+        if(!cleaner) throw err(400, 'invalid cleaner id')
+
+        if(!idToString(manager.masters).includes(cleaner.master.toString())) {
+            throw err(401, 'unauthorized in this master')
+        }
+        
+        res.status(200).send(cleaner)
+    } catch(e) {
+        res.status(400).send(e)
+    }
+})
+
+/**
+ * Delete a cleaner
+*/
+cleanerR.delete(
+'/cleaner/:clnId',
+managerAuth,
+async (req: Request<{ clnId: string }, {}, ManagerAuthI>, res: Response) => {
+    try {
+        const { clnId } = req.params
+        const { manager } = req.body
+
+        const cleaner = await Cleaner.findById(clnId)
+        if(!cleaner) throw 'invalid cleaner id'
+        if(cleaner.activeOrders.length > 0) throw 'cleaner has active orders'
+
+        if(!idToString(manager.masters).includes(cleaner.master.toString())) {
+            throw err(401, 'unauthorized to delete this cleaner in this master')
+        }
+
+        await cleaner.delete()
+
+        res.status(200).send(cleaner)
+    } catch(e) {
+        res.status(400).send(e)
     }
 })
 

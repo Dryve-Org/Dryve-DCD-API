@@ -107,10 +107,6 @@ export async function addSubscription(
     this: AptDocT,
     unitId: string,
     subscriptionId: string,
-    /**
-     * this alse can be a user email
-     */
-    clientId: string,
     bagQuantity: number
 ) {
     const apt = this
@@ -123,15 +119,12 @@ export async function addSubscription(
     const subscription = await stripe.subscriptions.retrieve(subscriptionId)
     if(!subscription || !subscription.status) throw err(400, 'subscription does not exist')
     
-    let client: any
-
-    if(v.isEmail(clientId)) {
-        client = await User.findOne({ email: clientId })
-    } else {
-        client = await User.findById(clientId.toString())
-    }
+    const client = await User.findOne({ stripeId: subscription.customer })
     
     if(!client || client === null) throw err(400, 'client does not exist')
+    if(!client.attachedUnitIds.includes(unitId)) {
+        client.attachedUnitIds.push(unitId)
+    }
 
     if(unit.subscriptions.filter(sub => sub.id === subscriptionId || sub.client.toString() === client.id).length > 0) {
         throw err(400, 'cannot add subscription to unit because it already exists or client already has subscription')
@@ -169,6 +162,43 @@ export async function addSubscription(
 
     await apt.save()
     updateClient && client.save()
+
+    return apt.buildings.get(buildingId)?.units.get(unitNum)
+}
+
+export async function removeSubscription(
+    this: AptDocT,
+    unitId: string,
+    subscriptionId: string
+) {
+    const apt = this
+    const unitData = apt.getUnitId(unitId)
+    if(!unitData) throw err(400, 'unit does not exist')
+
+    const [buildingId, unitNum, unit] = unitData
+
+    const filteredSub = unit.subscriptions.filter(sub => sub.id === subscriptionId)
+    if(!filteredSub) throw err(400, 'subscription does not exist')
+
+    const foundSub = filteredSub[0]
+    const sub = await stripe.subscriptions.retrieve(foundSub.id)
+    if(!sub) throw err(500, 'subscription not found on stripe')
+
+    const client = await User.findOne({ stripeId: sub.customer })
+    if(!client) throw err(500, 'client not found')
+
+    const stripeCus = await stripe.customers.retrieve(client.stripeId)
+    console.log(stripeCus)
+
+    client.subscriptions = client.subscriptions.filter((sub: any) => sub.id !== subscriptionId)
+    client.attachedUnitIds = client.attachedUnitIds.filter((id: string) => id !== unitId)
+
+    unit.subscriptions = unit.subscriptions.filter(sub => sub.id !== subscriptionId)
+
+    apt.buildings.get(buildingId)?.units.set(unitNum, unit)
+
+    await apt.save()
+    client.save()
 
     return apt.buildings.get(buildingId)?.units.get(unitNum)
 }
