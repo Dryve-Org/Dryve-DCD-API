@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express'
 import { managerAuth, ManagerAuthI } from '../../middleware/auth'
 import { err } from '../../constants/general'
 import Manager from '../../Models/manager.models'
-import { ManagerSelect } from './constants'
+import { ManagerPopulate } from './constants'
 import User, { UserDocT } from '../../Models/user.model'
 import { isOfAge, now } from '../../constants/time'
 import Master from '../../Models/master'
@@ -23,7 +23,7 @@ async (req: Request<{}, {}, ManagerAuthI>, res: Response) => {
         }
 
         const managers = await Manager.find({})
-            .populate(ManagerSelect)
+            .populate(ManagerPopulate)
 
         if(!managers) {
             throw err(500, 'no managers found')
@@ -50,7 +50,7 @@ async (req: Request<{managerId: string}, {}, ManagerAuthI>, res: Response) => {
         }
 
         const managers = await Manager.findById(managerId)
-            .populate(ManagerSelect)
+            .populate(ManagerPopulate)
             
         if(!managers) {
             throw err(500, 'no managers found')
@@ -151,6 +151,43 @@ interface ManagerWithMasterI extends ManagerAuthI {
 }
 
 /**
+ * add access to a master
+ */
+ManagerR.post(
+'/add_master/:managerId',
+managerAuth,
+async (req: Request<{managerId: string}, {}, ManagerWithMasterI>, res: Response) => {
+    try {
+        const { isAdmin } = req.body
+        const { managerId } = req.params
+        if(!isAdmin) {
+            throw err(401, 'unauthorized')
+        }
+
+        const { masterId } = req.body
+
+        const master = await Master.findById(masterId)
+        if(!master) {
+            throw err(400, 'invalid master id')
+        }
+
+        const manager = await Manager.findById(managerId)
+            .populate(ManagerPopulate)
+        if(!manager) {
+            throw err(400, 'master not found')
+        }
+
+        manager.masters.push(master._id)
+
+        await manager.save()
+
+        res.status(200).send(manager)
+    } catch(e) {
+        res.status(400).send(e)
+    }
+})
+
+/**
  * Remove access to a master
 */
 ManagerR.delete(
@@ -183,6 +220,36 @@ async (req: Request<{managerId: string}, {}, ManagerWithMasterI>, res: Response)
         await foundManager.save()
 
         res.status(200).send(foundManager)
+    } catch(e) {
+        res.status(400).send(e)
+    }
+})
+
+/**
+ * Remove all access to masters
+ */
+ManagerR.delete(
+'/remove_all_masters/:managerId',
+managerAuth,
+async (req: Request<{managerId: string}, {}, ManagerWithMasterI>, res: Response) => {
+    try {
+        const { isAdmin } = req.body
+        const { managerId } = req.params
+        if(!isAdmin) {
+            throw err(401, 'unauthorized')
+        }
+
+        const manager = await Manager.findById(managerId)
+            .populate(ManagerPopulate)
+        if(!manager) {
+            throw err(400, 'manager not found')
+        }
+
+        manager.masters = []
+
+        await manager.save()
+
+        res.status(200).send(manager)
     } catch(e) {
         res.status(400).send(e)
     }
