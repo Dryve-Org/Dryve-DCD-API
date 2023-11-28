@@ -9,3 +9,14 @@ export const ManagerPopulate = {
         preferences: 0
     }
 }
+
+export const CleanerPopulate = [
+    {
+        path: 'address',
+        model: 'Address'
+    },
+    {
+        path: 'services',
+        model: 'ServicesAndProducts',
+    }, 
+]

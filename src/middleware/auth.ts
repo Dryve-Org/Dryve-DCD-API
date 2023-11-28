@@ -234,7 +234,7 @@ export const managerAuth: any = async (req: Request, res: Response, next: NextFu
             message: "bad data: could not authenticate user"
         }
 
-        const manager = await Manager.findOne({ user: user.id })
+        const manager = await Manager.findOne({ userId: user.id })
         if(!manager) throw {
             statusCode: 401,
             message: "bad data: invalid access"

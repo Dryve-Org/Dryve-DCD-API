@@ -300,7 +300,9 @@ managerAuth,
 async (req: Request<{}, {}, ManagerAuthI>, res: Response) => {
     try {
         const cleaners = await Cleaner.find({
-            $in: req.body.manager.masters
+            master: {
+                '$in': req.body.manager.masters 
+            }
         })
             .populate([
                 {
