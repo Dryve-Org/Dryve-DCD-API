@@ -129,9 +129,6 @@ async (req: Request<{clnId: string}, {}, DropOrdersI>, res: Response) => {
         for(let order of orders) {
             /* Checking if the apartment is attached to the cleaner. */
             const apt = order.apartment as unknown as AptDocT
-            if(!idToString(apt.goToCleaners).includes(clnId)) {
-                throw `one or more of these orders can't come here because apartment not attached to these cleaners`
-            }
             if(!validStatus.includes(order.status)) {
                 throw `order "${order.id}" has a status of ${order.status}`
             }

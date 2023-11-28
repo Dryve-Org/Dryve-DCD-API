@@ -26,27 +26,23 @@ export function getBuilding (this: AptDocT,
  * Activate client to an apartment unit
  * 
  * **Client must be in unit
- * 
- * @param {string} buildingId - string - building identifier
  * @param {String} unitId - strings - unit identifier
  * @return {Promise<AptDocT>} - updated Apt document
 */
 export async function activateUnit(this: AptDocT,
-    buildingId: string, 
     unitId: string
 ) {
     const apt = this
     
-    const unit = apt.buildings.get(buildingId)?.units
-        .get(unitId)
-    
-    if(apt.buildings.get(buildingId)) err(400, `could not find building ${buildingId}`)
-    if(!unit) throw err(400, `could not find unit ${unitId}`)
+    const unitdata = apt.getUnitId(unitId)
+    if(!unitdata) throw err(400, `could not find unit ${unitId}`)
+    const [buildingId, unitNum, unit] = unitdata
+
     if(unit.isActive) throw err(400, `unit ${unitId} is already active`)
 
     unit.isActive = true
 
-    apt.buildings.get(buildingId)?.units.set(unitId, unit)
+    apt.buildings.get(buildingId)?.units.set(unitNum, unit)
 
     await apt.save()
     return apt
@@ -111,10 +107,6 @@ export async function addSubscription(
     this: AptDocT,
     unitId: string,
     subscriptionId: string,
-    /**
-     * this alse can be a user email
-     */
-    clientId: string,
     bagQuantity: number
 ) {
     const apt = this
@@ -122,19 +114,17 @@ export async function addSubscription(
     if(!unitData) throw err(400, 'unit does not exist')
 
     const [buildingId, unitNum, unit] = unitData
+    if(!unit.isActive) throw err(400, 'unit is not active')
     
     const subscription = await stripe.subscriptions.retrieve(subscriptionId)
     if(!subscription || !subscription.status) throw err(400, 'subscription does not exist')
     
-    let client: any
-
-    if(v.isEmail(clientId)) {
-        client = await User.findOne({ email: clientId })
-    } else {
-        client = await User.findById(clientId.toString())
-    }
+    const client = await User.findOne({ stripeId: subscription.customer })
     
     if(!client || client === null) throw err(400, 'client does not exist')
+    if(!client.attachedUnitIds.includes(unitId)) {
+        client.attachedUnitIds.push(unitId)
+    }
 
     if(unit.subscriptions.filter(sub => sub.id === subscriptionId || sub.client.toString() === client.id).length > 0) {
         throw err(400, 'cannot add subscription to unit because it already exists or client already has subscription')
@@ -176,6 +166,50 @@ export async function addSubscription(
     return apt.buildings.get(buildingId)?.units.get(unitNum)
 }
 
+export async function removeSubscription(
+    this: AptDocT,
+    unitId: string,
+    subscriptionId: string
+) {
+    const apt = this
+    const unitData = apt.getUnitId(unitId)
+    if(!unitData) throw err(400, 'unit does not exist')
+
+    const [buildingId, unitNum, unit] = unitData
+
+    const filteredSub = unit.subscriptions.filter(sub => sub.id === subscriptionId)
+    if(!filteredSub) throw err(400, 'subscription does not exist')
+
+    const foundSub = filteredSub[0]
+    const sub = await stripe.subscriptions.retrieve(foundSub.id)
+    if(!sub) throw err(500, 'subscription not found on stripe')
+
+    const client = await User.findOne({ stripeId: sub.customer })
+    if(!client) throw err(500, 'client not found')
+
+    const stripeCus = await stripe.customers.retrieve(client.stripeId)
+    console.log(stripeCus)
+
+    client.subscriptions = client.subscriptions.filter((sub: any) => sub.id !== subscriptionId)
+    client.attachedUnitIds = client.attachedUnitIds.filter((id: string) => id !== unitId)
+
+    unit.subscriptions = unit.subscriptions.filter(sub => sub.id !== subscriptionId)
+
+    apt.buildings.get(buildingId)?.units.set(unitNum, unit)
+
+    await apt.save()
+    client.save()
+
+    return apt.buildings.get(buildingId)?.units.get(unitNum)
+}
+
+/**
+ * The function `checkAllSubscriptions` checks the status of all subscriptions in an apartment, removes
+ * cancelled subscriptions, and updates the status of active subscriptions.
+ * 
+ * @param {AptDocT} - `this: AptDocT` is the context of the function, which is an instance of
+ * `AptDocT`.
+*/
 export async function checkAllSubscriptions(
     this: AptDocT,
 ) {

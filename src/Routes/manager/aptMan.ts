@@ -47,10 +47,13 @@ async (req: Request<{}, {}, AptManLoginI>, res: Response) => {
             const apts = await Apt.find({
                 _id: {
                     $in: attachedApts
+                },
+                master: {
+                    $in: manager.masters
                 }
             })
             if(apts.length !== attachedApts.length) {
-                throw new Error('invalid attachedApts')
+                throw new Error('invalid attachedApts that might not be in your master')
             }
         }
 

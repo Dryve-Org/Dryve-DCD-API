@@ -209,24 +209,27 @@ async (req: Request<{ unitId: UnitI['unitId'] }, {}, assignUnitI>, res: Response
 })
 
 AptR.post(
-'/:aptId/:bldId/:unitId/activate',
+'/:unitId/activate',
 aptManAuth,
 async (req: Request<AptParams, {}, assignUnitI>, res: Response) => {
     try {
-        const { aptId, bldId, unitId } = req.params
+        const { unitId } = req.params
 
         const { aptMan } = req.body
 
-        if(!idToString(aptMan.attachedApts).includes(aptId)) {
-            return res.status(401).send('Unauthorized to access this apartment')
-        }
- 
-        const apt = await Apt.findById(aptId)
+        
+        const apt = await Apt.findOne({
+            aptId: extractUnitId(unitId)[0]
+        })
         if(!apt) {
-            return res.status(400).send('Invalid apartment')
+            return res.status(400).send('Invalid apartment id')
         }
 
-        await apt.activateUnit(bldId, unitId)
+        if(!idToString(aptMan.attachedApts).includes(apt.id)) {
+            return res.status(401).send('Unauthorized to access this apartment')
+        }
+
+        await apt.activateUnit(unitId)
 
         res.status(200).send('Unit activated')
     } catch(e) {

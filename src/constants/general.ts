@@ -39,8 +39,8 @@ export const stringToId = (
 
     if(!Array.isArray(ids)) return [ 
         new mongoose.Types.ObjectId(
-            returnString(ids)
-        ) 
+            returnString(ids).length === 24 ? returnString(ids) : 24
+        )
     ]
     return ids.map(id => new mongoose.Types.ObjectId(
         returnString(id)

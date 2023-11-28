@@ -43,7 +43,7 @@ async (req: Request<{}, {}, ManLogin>, res: Response) => {
         }
 
         const manager = await Manager.findOne({
-            userId: { _id: user._id }
+            userId: user._id
         })
         if(!manager) {
             res.status(401).send('not authorized')
