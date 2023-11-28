@@ -87,7 +87,12 @@ const MasterSchema = new Schema<MasterI, MasterModelT, MasterIMethods> (
             type: Schema.Types.ObjectId,
             ref: 'ServicesAndProducts',
             default: []
-        }]
+        }],
+        title: {
+            type: String,
+            required: true,
+            trim: true
+        }
     }
 )
 
