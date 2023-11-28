@@ -9,9 +9,14 @@ export interface ManagerI {
     created: number
     _id: Types.ObjectId
     masters: Types.ObjectId[]
+    isAdmin: boolean
 }
 
 const ManagerSchema = new Schema<ManagerI>({
+    isAdmin: {
+        type: Boolean,
+        default: false
+    },
     userId: {
         type: Schema.Types.ObjectId,
         ref: 'User',
