@@ -71,6 +71,40 @@ interface addClientServiceI extends ManagerAuthI {
     type: ClientPreferenceI['type']
 }
 
+interface addMasterI extends ManagerAuthI {
+    title: string
+}
+
+MasterR.post(
+'/create_area',
+managerAuth,
+async (req: Request<{}, {}, addMasterI>, res: Response) => {
+    try {
+        const { isAdmin, title } = req.body
+        if(!isAdmin) {
+            res.status(401).send('not authorized')
+            return
+        }
+
+        const master = new Master({
+            title,
+            apartment_id_index: 0,
+        })
+
+        await master.save()
+
+        res.status(200).send(master)
+    } catch(e: any) {
+        if(e.message && e.status) {
+            res.status(e.status).send(e.message)
+            return
+        } else {
+            res.status(500).send(e)
+            return
+        }
+    }
+})
+
 MasterR.post(
 '/area/:masterId/add_client_service',
 managerAuth,
