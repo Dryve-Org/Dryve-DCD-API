@@ -123,15 +123,15 @@ async (req: Request<{}, {}, AddAptI>, res: Response) => {
         const apt = new Apt({
             name,
             address: addy,
-            masterId
+            master: masterId,
         })
 
         await apt.save()
             .then(() => {
                 res.status(200).send(apt)
             })
-            .catch(() => {
-                res.status(500).send('unable to store new apartment')
+            .catch(e => {
+                res.status(500).send(e)
             })
 
     } catch(e) {
