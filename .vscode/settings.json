@@ -1,0 +1,7 @@
+{
+    "docwriter.style": "Auto-detect",
+    "docwriter.progress.trackFunctions": false,
+    "docwriter.progress.trackTypes": false,
+    "docwriter.progress.trackMethods": false,
+    "docwriter.hotkey.windows": "Alt + ."
+}
