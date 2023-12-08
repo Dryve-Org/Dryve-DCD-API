@@ -145,7 +145,7 @@ async (req: Request<{clnId: string}, {}, DropOrdersI>, res: Response) => {
 
             order.addEvent(
                 'driver',
-                '',
+                'Driver dropped off clothes at cleaner',
                 'driver',
                 driver._id
             )
