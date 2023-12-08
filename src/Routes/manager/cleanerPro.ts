@@ -6,7 +6,8 @@ import Cleaner from '../../Models/cleaner.model'
 import v from 'validator'
 import Service, { ServiceI } from '../../Models/services.model'
 import CleanerProfile from '../../Models/cleanerProfile.model'
-import { idToString } from '../../constants/general'
+import { err, idToString } from '../../constants/general'
+import { now } from '../../constants/time'
 
 const cleanerProR = express.Router()
 
@@ -52,5 +53,49 @@ async (req: Request<{ clnProId: string, clnId: string }, {}, ManagerAuthI>, res:
     }
 })
 
+interface CreateCleanerProI extends ManagerAuthI {
+    profileId: string,
+    attachedCleaners: string[]
+}
+
+cleanerProR.post(
+'/cleanerPro/create',
+managerAuth,
+async (req: Request<{}, {}, CreateCleanerProI>, res: Response) => {
+    try {
+        const { profileId, attachedCleaners, manager } = req.body
+
+        const cleaners = await Cleaner.find({
+            _id: { $in: attachedCleaners },
+            master: { $in: manager.masters }
+        })
+        if(cleaners.length !== attachedCleaners.length) {
+            throw err(400, 'invalid cleaner id or manager is not allowed to manage cleaner')
+        }
+
+        const cleanerPro = await CleanerProfile.findOne({
+            user: profileId
+        })
+
+        if(cleanerPro) {
+            throw err(400, 'cleaner profile already exists')
+        }
+
+        const newCleanerPro = new CleanerProfile({
+            user: profileId,
+            attachedCleaners,
+            created: now()
+        })
+
+        await newCleanerPro.save()
+            .catch(e => {
+                throw err(500, e)
+            })
+
+        res.status(200).send(cleanerPro)
+    } catch(e: any) {
+        res.status(e.status).send(e.message)
+    }
+})
 
 export default cleanerProR
