@@ -14,7 +14,7 @@ import User from '../../Models/user.model'
 import { AptToUnitI } from '../interface'
 import { driverAptSelect, driverCleanerPopulate, driverCleanerSelect, driverClientSelect, driverOrderPopulate, driverOrderSelect } from './constants'
 import Master from '../../Models/master'
-import { err, extractUnitId, idToString } from '../../constants/general'
+import { err, extractUnitId, idToString, stringToId } from '../../constants/general'
 
 const orderR = express.Router()                                                                                                                    
 
@@ -276,6 +276,53 @@ async (req: Request<ClientOrderCreateI, {}, DriverAuthI>, res: Response) => {
         }
     }
 })
+
+orderR.post(
+'/order/bagquantity/:orderId/:quantity',
+driverAuth,
+async (req: Request<{orderId: string, quantity: string}, {}, DriverAuthI>, res: Response) => {
+    try {
+        const { orderId } = req.params
+        const { driver } = req.body
+        const quantity = parseInt(req.params.quantity)
+        
+        if(isNaN(quantity) || quantity < 1) {
+            throw err(400, 'quantity not provided')
+        }
+
+        if(!driver.activeOrders.includes(stringToId(orderId)[0])) {
+            throw err(400, 'order not handled by driver')
+        }
+
+        const order = await Order.findById(orderId, driverOrderSelect)
+            .populate(driverOrderPopulate)
+
+        if(!order) throw 'invalid order id'
+
+        order.bagQuantity = quantity
+
+        await order.save()
+            .catch(() => {
+                return err(500, 'something went wrong saving order.')
+            })
+
+        res.status(200).send(order)
+
+        order.addEvent(
+            `Driver updated bag quantity`,
+            `quantity: ${quantity}`,
+            'driver',
+            driver._id
+        )
+    } catch(e: any) {
+        if(e.status && e.message) {
+            res.status(e.status).send(e.message)
+        } else {
+            res.status(500).send(e)
+        }
+    }
+})
+
 
 /**
  * Cancel Order
