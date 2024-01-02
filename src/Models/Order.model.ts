@@ -51,6 +51,7 @@ export const orderStatuses: OrderstatusT[] = [
 ]
 
 export interface OrderI extends OrderMethodsI {
+    bagQuantity: number
     master: Types.ObjectId
     clientPreferences: MasterI['clientPreferences'] // client preference
     client: Types.ObjectId // client
@@ -279,6 +280,11 @@ const OrderSchema = new Schema<OrderI, OrderModelT, OrderMethodsI>({
                 throw new Error("Not in unix format")
             }
         }
+    },
+    bagQuantity: {
+        type: Number,
+        required: true,
+        default: 1
     },
     paymentLinkId: {
         type: String
